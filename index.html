@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalkulator Biaya Tokopedia 2026</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- React & Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- xlsx-js-style library for premium styled exports -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased">
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // Format Helper
+        const formatIDR = (num) => {
+            return 'Rp ' + Math.round(num).toLocaleString('id-ID');
+        };
+
+        const formatPercent = (num) => {
+            return num.toFixed(2) + '%';
+        };
+
+        const getFormattedDateString = () => {
+            const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+            const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+            const now = new Date();
+            const dayName = days[now.getDay()];
+            const date = now.getDate();
+            const monthName = months[now.getMonth()];
+            const year = now.getFullYear();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            return `${dayName}, ${date} ${monthName} ${year} ${hours}:${minutes} WIB`;
+        };
+
+        // Custom Component for thousands separator formatting on-the-fly
+        const FormattedNumberInput = ({ label, value, onChange, prefix = "Rp ", info = "" }) => {
+            const displayValue = value ? value.toLocaleString('id-ID') : '';
+
+            const handleChange = (e) => {
+                const cleanVal = e.target.value.replace(/\D/g, '');
+                const numVal = parseInt(cleanVal, 10) || 0;
+                onChange(numVal);
+            };
+
+            return (
+                <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">{label}</label>
+                    <div className="relative">
+                        {prefix && (
+                            <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-medium text-sm">
+                                {prefix}
+                            </span>
+                        )}
+                        <input 
+                            type="text" 
+                            className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm font-semibold text-slate-800"
+                            value={displayValue}
+                            onChange={handleChange}
+                        />
+                    </div>
+                    {info && <p className="text-[10px] text-slate-400 mt-1">{info}</p>}
+                </div>
+            );
+        };
+
+        const PercentInput = ({ label, value, onChange, info = "" }) => {
+            const handleNumberChange = (e) => {
+                const val = parseFloat(e.target.value);
+                onChange(isNaN(val) ? 0 : val);
+            };
+
+            return (
+                <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">{label}</label>
+                    <div className="relative">
+                        <input 
+                            type="number" 
+                            step="0.1"
+                            min="0"
+                            max="100"
+                            className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm font-semibold text-slate-800"
+                            value={value}
+                            onChange={handleNumberChange}
+                        />
+                        <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 text-xs">
+                            %
+                        </span>
+                    </div>
+                    {info && <p className="text-[10px] text-slate-400 mt-1">{info}</p>}
+                </div>
+            );
+        };
+
+        // Stylized SVG Logo of Waras Berbisnis (Healthy Growth + WB Initials)
+        const WarasLogo = () => (
+            <svg className="w-10 h-10 text-emerald-100" viewBox="0 0 100 100" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="6" />
+                <path d="M50 20 V80 M20 50 H80" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
+                <path d="M35 65 L45 55 L55 60 L70 42" fill="none" stroke="#34d399" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="70" cy="42" r="5" fill="#34d399" />
+            </svg>
+        );
+
+        function App() {
+            // 1. Detail Produk
+            const [namaProduk, setNamaProduk] = useState("Produk Unggulan");
+            const [hargaJual, setHargaJual] = useState(150000);
+            const [diskonSeller, setDiskonSeller] = useState(10000);
+            const [hpp, setHpp] = useState(75000);
+            const [packagingCost, setPackagingCost] = useState(2500);
+
+            // 2. Biaya Platform
+            const [sellerType, setSellerType] = useState('Power Merchant Pro');
+            const [platformRate, setPlatformRate] = useState(10.0);
+            const [dynamicRate, setDynamicRate] = useState(2.5);
+            const [logisticsFeeInput, setLogisticsFeeInput] = useState(4500);
+            const [isPreOrder, setIsPreOrder] = useState(false);
+            const [isNewShop, setIsNewShop] = useState(false);
+            const [orderCondition, setOrderCondition] = useState('normal');
+
+            // GMV inputs
+            const [isGmvMaxActive, setIsGmvMaxActive] = useState(true);
+            const [gmvMaxBudget, setGmvMaxBudget] = useState(1500000);
+            const [totalGmv, setTotalGmv] = useState(40000000);
+            const [isGrowthXtraActive, setIsGrowthXtraActive] = useState(true);
+
+            // 3. Biaya Promo & Diskon (Voucher Discount Sync)
+            const [voucherDiscountPercent, setVoucherDiscountPercent] = useState(2.0);
+            const [voucherDiscountRupiah, setVoucherDiscountRupiah] = useState(3000);
+            const [lastEditedVoucher, setLastEditedVoucher] = useState('percent'); // tracks percent vs rupiah edit source of truth
+            const [adsPerOrder, setAdsPerOrder] = useState(3500);
+            const [affiliateRate, setAffiliateRate] = useState(5.0);
+
+            // 4. Target Penjualan
+            const [targetMargin, setTargetMargin] = useState(25.0);
+            const [dailyOrdersTarget, setDailyOrdersTarget] = useState(15);
+
+            // Dynamic Live Date state for UI
+            const [headerDate, setHeaderDate] = useState(getFormattedDateString());
+
+            useEffect(() => {
+                const interval = setInterval(() => {
+                    setHeaderDate(getFormattedDateString());
+                }, 1000);
+                return () => clearInterval(interval);
+            }, []);
+
+            const handleVoucherPercentChange = (pct) => {
+                setLastEditedVoucher('percent');
+                setVoucherDiscountPercent(pct);
+                setVoucherDiscountRupiah(Math.round(hargaJual * (pct / 100)));
+            };
+
+            const handleVoucherRupiahChange = (rp) => {
+                setLastEditedVoucher('rupiah');
+                setVoucherDiscountRupiah(rp);
+                setVoucherDiscountPercent(hargaJual > 0 ? (rp / hargaJual) * 100 : 0);
+            };
+
+            // Recalculate voucher fields if Harga Jual changes based on last edited source
+            useEffect(() => {
+                if (lastEditedVoucher === 'percent') {
+                    setVoucherDiscountRupiah(Math.round(hargaJual * (voucherDiscountPercent / 100)));
+                } else {
+                    setVoucherDiscountPercent(hargaJual > 0 ? (voucherDiscountRupiah / hargaJual) * 100 : 0);
+                }
+            }, [hargaJual]);
+
+            const calculations = useMemo(() => {
+                const basisKomisi = Math.max(0, hargaJual - diskonSeller);
+                const isFailedDelivery = orderCondition === 'gagal';
+
+                // Auto-diskon komisi platform 10% -> 8%
+                const isPlatformRate10 = Math.abs(platformRate - 10) < 0.001;
+                const effectiveBasicPlatformRate = isPlatformRate10 ? 8.0 : platformRate;
+
+                // Pre-order surcharge (+3.0%)
+                const preOrderExtra = isPreOrder ? 3.0 : 0.0;
+                const totalPlatformRate = isFailedDelivery ? 0 : (effectiveBasicPlatformRate + preOrderExtra);
+
+                // Raw platform platform commission
+                const rawPlatformCommission = isFailedDelivery ? 0 : (basisKomisi * (totalPlatformRate / 100));
+
+                // Program GMV Max & Growth Xtra Tier simulation
+                const gmvRatio = totalGmv > 0 ? (gmvMaxBudget / totalGmv) * 100 : 0;
+                const isGmvAtLeast3Percent = gmvRatio >= 3.0;
+
+                let programTier = 'Regular (Tanpa Program)';
+                let programDiscountPercent = 0;
+
+                if (sellerType !== 'Regular Merchant') {
+                    if (isGmvMaxActive && isGrowthXtraActive) {
+                        if (isGmvAtLeast3Percent) {
+                            programTier = 'Dual Stacked (GMV Max ≥3% + Growth Xtra)';
+                            programDiscountPercent = 8.18;
+                        } else {
+                            programTier = 'Combined Stacked (GMV Max <3% + Growth Xtra)';
+                            programDiscountPercent = 7.50; // Campaign GMV (2.70%) + Growth Xtra (4.80%)
+                        }
+                    } else if (isGmvMaxActive) {
+                        if (isGmvAtLeast3Percent) {
+                            programTier = 'GMV Max Level Toko (Budget ≥3%)';
+                            programDiscountPercent = 6.45;
+                        } else {
+                            programTier = 'GMV Max Per Campaign (Budget <3%)';
+                            programDiscountPercent = 2.70;
+                        }
+                    } else if (isGrowthXtraActive) {
+                        programTier = 'Growth Xtra Program';
+                        programDiscountPercent = 4.80;
+                    }
+                }
+
+                // Program savings are computed from the basic/raw platform commission
+                const programSavings = isFailedDelivery ? 0 : (rawPlatformCommission * (programDiscountPercent / 100));
+                const platformCommissionEff = Math.max(0, rawPlatformCommission - programSavings);
+
+                // Dynamic commission capped at Rp650.000 per unit
+                const rawDynamicCommission = isFailedDelivery ? 0 : (basisKomisi * (dynamicRate / 100));
+                const isDynamicCapped = rawDynamicCommission > 650000;
+                const dynamicCommission = isFailedDelivery ? 0 : Math.min(rawDynamicCommission, 650000);
+
+                // Fixed order processing fee (Rp1.250 or free for new shops)
+                const processingFee = isFailedDelivery ? 0 : (isNewShop ? 0 : 1250);
+
+                // Logistics Input cap at Rp 10.110 before tax
+                const logisticsEff = isFailedDelivery ? 0 : Math.min(logisticsFeeInput, 10110);
+                const isLogisticsCapped = logisticsFeeInput > 10110;
+
+                // Vouchers discount
+                const totalVoucherAmount = isFailedDelivery ? 0 : voucherDiscountRupiah;
+
+                // Affiliate commission
+                const affiliateCommission = isFailedDelivery ? 0 : (basisKomisi * (affiliateRate / 100));
+
+                // Return liability (June 2026, max Rp 5.000)
+                const returnFee = orderCondition === 'retur' ? 5000 : 0;
+
+                // Total platform deductions
+                const totalPlatformDeductions = platformCommissionEff + dynamicCommission + processingFee + logisticsEff + affiliateCommission;
+                
+                // Net Payout
+                const netPayout = Math.max(0, basisKomisi - totalPlatformDeductions - totalVoucherAmount);
+
+                // Net Profit per unit
+                const totalMerchantCost = hpp + packagingCost + adsPerOrder + returnFee;
+                const netProfit = netPayout - totalMerchantCost;
+
+                // Percent metrics
+                const totalPlatformDeductionPercent = basisKomisi > 0 
+                    ? (((totalPlatformDeductions + totalVoucherAmount + adsPerOrder) / basisKomisi) * 100)
+                    : 0;
+
+                const effectiveCommissionPercent = basisKomisi > 0
+                    ? (((platformCommissionEff + dynamicCommission) / basisKomisi) * 100)
+                    : 0;
+
+                const netMarginPercent = basisKomisi > 0
+                    ? ((netProfit / basisKomisi) * 100)
+                    : 0;
+
+                // Break Even Point Calculation (Symmetric formula)
+                const totalFixedFees = hpp + packagingCost + processingFee + logisticsEff + adsPerOrder + voucherDiscountRupiah + returnFee;
+                const totalVariablePercent = (totalPlatformRate - (totalPlatformRate * programDiscountPercent / 100) + (dynamicRate / 100) + (affiliateRate / 100) + (voucherDiscountPercent * (hargaJual / (basisKomisi || 1))) / 100);
+                
+                const bepPrice = totalVariablePercent < 1 
+                    ? Math.round(totalFixedFees / (1 - totalVariablePercent))
+                    : hpp;
+
+                // Proyeksi Bulanan
+                const monthlyOrders = dailyOrdersTarget * 30;
+                const monthlyRevenue = basisKomisi * monthlyOrders;
+                const monthlyProfit = netProfit * monthlyOrders;
+
+                // REVISI 1: Rekomendasi Jual Minimum = Total Biaya per order / (1 - Target Margin Bersih %)
+                const totalCostPerOrder = hpp + packagingCost + totalPlatformDeductions + totalVoucherAmount + adsPerOrder + returnFee;
+                const targetMarginDecimal = targetMargin / 100;
+                
+                // Rumus: Cost / (1 - Margin%)
+                let rawRecommendedPrice = targetMarginDecimal < 1 
+                    ? Math.round(totalCostPerOrder / (1 - targetMarginDecimal)) 
+                    : hpp;
+                
+                // Idealnya tidak boleh kurang dari harga jual saat ini
+                const recommendedPrice = Math.max(hargaJual, rawRecommendedPrice);
+
+                return {
+                    basisKomisi,
+                    rawPlatformCommission,
+                    programSavings,
+                    platformCommissionEff,
+                    rawDynamicCommission,
+                    isDynamicCapped,
+                    dynamicCommission,
+                    processingFee,
+                    logisticsEff,
+                    isLogisticsCapped,
+                    totalVoucherAmount,
+                    affiliateCommission,
+                    returnFee,
+                    netPayout,
+                    netProfit,
+                    programTier,
+                    programDiscountPercent,
+                    totalPlatformDeductionPercent,
+                    effectiveCommissionPercent,
+                    netMarginPercent,
+                    bepPrice,
+                    effectivePlatformRate: totalPlatformRate * 100,
+                    isPlatformRate10,
+                    gmvRatio,
+                    isGmvAtLeast3Percent,
+                    gmvBudgetDeficit: Math.max(0, (totalGmv * 0.03) - gmvMaxBudget),
+                    monthlyOrders,
+                    monthlyRevenue,
+                    monthlyProfit,
+                    recommendedPrice,
+                    totalCostPerOrder
+                };
+            }, [
+                hargaJual, diskonSeller, hpp, packagingCost, sellerType, platformRate, 
+                dynamicRate, logisticsFeeInput, isPreOrder, isNewShop, orderCondition, 
+                voucherDiscountPercent, voucherDiscountRupiah, adsPerOrder, affiliateRate,
+                isGmvMaxActive, gmvMaxBudget, totalGmv, isGrowthXtraActive, dailyOrdersTarget, targetMargin
+            ]);
+
+            const exportToExcel = () => {
+                const COLOR_TOKENS = {
+                    titleBg: '1A3C2E',       // dark forest green
+                    sectionBg: '2D6A4F',     // medium green
+                    inputBg: 'FFF9C4',       // light yellow
+                    outputBg: 'EBF5EB',      // light green
+                    linkedBg: 'D8F3DC',      // pale green
+                    borderColor: 'B7E4C7',   // soft green border
+                    titleFont: 'FFFFFF',     // white
+                    inputFont: '0000CC',     // blue
+                    outputFont: '000000',    // black
+                    linkFont: '006400',      // dark green
+                    healthyBg: 'EBF5EB',     // light green
+                    healthyFont: '145A32',   // dark forest green
+                    lossBg: 'FFEBEE',        // light red
+                    lossFont: 'C0392B'        // dark red
+                };
+
+                const borderThin = {
+                    top: { style: 'thin', color: { rgb: COLOR_TOKENS.borderColor } },
+                    bottom: { style: 'thin', color: { rgb: COLOR_TOKENS.borderColor } },
+                    left: { style: 'thin', color: { rgb: COLOR_TOKENS.borderColor } },
+                    right: { style: 'thin', color: { rgb: COLOR_TOKENS.borderColor } }
+                };
+
+                const borderMedium = {
+                    top: { style: 'medium', color: { rgb: COLOR_TOKENS.titleBg } },
+                    bottom: { style: 'medium', color: { rgb: COLOR_TOKENS.titleBg } },
+                    left: { style: 'medium', color: { rgb: COLOR_TOKENS.titleBg } },
+                    right: { style: 'medium', color: { rgb: COLOR_TOKENS.titleBg } }
+                };
+
+                const STYLES = {
+                    title: {
+                        font: { name: 'Arial', sz: 13, bold: true, color: { rgb: COLOR_TOKENS.titleFont } },
+                        fill: { patternType: 'solid', fgColor: { rgb: COLOR_TOKENS.titleBg } },
+                        alignment: { horizontal: 'center', vertical: 'center' }
+                    },
+                    subtitle: {
+                        font: { name: 'Arial', sz: 9, italic: true, color: { rgb: '444444' } },
+                        alignment: { horizontal: 'center', vertical: 'center' }
+                    },
+                    legend: {
+                        font: { name: 'Arial', sz: 8, italic: true, color: { rgb: '444444' } },
+                        alignment: { horizontal: 'left', vertical: 'center' }
+                    },
+                    sectionHeader: {
+                        font: { name: 'Arial', sz: 10, bold: true, color: { rgb: COLOR_TOKENS.titleFont } },
+                        fill: { patternType: 'solid', fgColor: { rgb: COLOR_TOKENS.sectionBg } },
+                        alignment: { horizontal: 'left', vertical: 'center' }
+                    },
+                    labelInput: {
+                        font: { name: 'Arial', sz: 10 },
+                        border: borderThin
+                    },
+                    valueInput: {
+                        font: { name: 'Arial', sz: 10, color: { rgb: COLOR_TOKENS.inputFont } },
+                        fill: { patternType: 'solid', fgColor: { rgb: COLOR_TOKENS.inputBg } },
+                        alignment: { horizontal: 'right', vertical: 'center' },
+                        border: borderThin
+                    },
+                    labelAuto: {
+                        font: { name: 'Arial', sz: 10, color: { rgb: COLOR_TOKENS.linkFont } },
+                        border: borderThin
+                    },
+                    valueAuto: {
+                        font: { name: 'Arial', sz: 10, color: { rgb: COLOR_TOKENS.linkFont } },
+                        fill: { patternType: 'solid', fgColor: { rgb: COLOR_TOKENS.linkedBg } },
+                        alignment: { horizontal: 'right', vertical: 'center' },
+                        border: borderThin
+                    },
+                    labelOutput: {
+                        font: { name: 'Arial', sz: 10 },
+                        border: borderThin
+                    },
+                    valueOutput: {
+                        font: { name: 'Arial', sz: 10, color: { rgb: COLOR_TOKENS.outputFont } },
+                        fill: { patternType: 'solid', fgColor: { rgb: COLOR_TOKENS.outputBg } },
+                        alignment: { horizontal: 'right', vertical: 'center' },
+                        border: borderThin
+                    },
+                    labelFinal: {
+                        font: { name: 'Arial', sz: 12, bold: true, color: { rgb: COLOR_TOKENS.titleFont } },
+                        fill: { patternType: 'solid', fgColor: { rgb: COLOR_TOKENS.titleBg } },
+                        alignment: { horizontal: 'left', vertical: 'center' },
+                        border: borderMedium
+                    },
+                    valueFinal: {
+                        font: { name: 'Arial', sz: 12, bold: true, color: { rgb: COLOR_TOKENS.titleFont } },
+                        fill: { patternType: 'solid', fgColor: { rgb: COLOR_TOKENS.titleBg } },
+                        alignment: { horizontal: 'right', vertical: 'center' },
+                        border: borderMedium
+                    },
+                    statusHealthy: {
+                        font: { name: 'Arial', sz: 10, bold: true, color: { rgb: COLOR_TOKENS.healthyFont } },
+                        fill: { patternType: 'solid', fgColor: { rgb: COLOR_TOKENS.healthyBg } },
+                        alignment: { horizontal: 'center', vertical: 'center' },
+                        border: borderThin
+                    },
+                    notes: {
+                        font: { name: 'Arial', sz: 8, italic: true, color: { rgb: '555555' } },
+                        alignment: { horizontal: 'left', vertical: 'center' }
+                    }
+                };
+
+                const ws = {};
+                const merges = [];
+                const rowHeights = [];
+
+                // Rows structure
+                ws['A1'] = { v: '🧮 TOKOPEDIA REVISED PROFIT SIMULATOR (2026)', t: 's', s: STYLES.title };
+                merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } });
+                rowHeights.push({ hpt: 38 });
+
+                ws['A2'] = { v: `Diunduh pada: ${headerDate} | Hak Cipta warasberbisnis`, t: 's', s: STYLES.subtitle };
+                merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 2 } });
+                rowHeights.push({ hpt: 18 });
+
+                ws['A3'] = { v: '🔵 Biru = Input Bebas  |  🟢 Hijau = Formula Otomatis Dinamis', t: 's', s: STYLES.legend };
+                merges.push({ s: { r: 2, c: 0 }, e: { r: 2, c: 2 } });
+                rowHeights.push({ hpt: 18 });
+
+                rowHeights.push({ hpt: 10 });
+
+                let row = 4;
+
+                const addSectionHeader = (label) => {
+                    ws[`A${row + 1}`] = { v: label, t: 's', s: STYLES.sectionHeader };
+                    merges.push({ s: { r: row, c: 0 }, e: { r: row, c: 2 } });
+                    rowHeights.push({ hpt: 22 });
+                    row++;
+                };
+
+                const addInputRow = (label, value, format = '@', note = '') => {
+                    ws[`A${row + 1}`] = { v: label, t: 's', s: STYLES.labelInput };
+                    ws[`B${row + 1}`] = { v: value, t: typeof value === 'number' ? 'n' : 's', s: STYLES.valueInput, numFmt: format };
+                    ws[`C${row + 1}`] = { v: note, t: 's', s: STYLES.notes };
+                    rowHeights.push({ hpt: 20 });
+                    row++;
+                };
+
+                const addFormulaRow = (label, formula, format = '@', note = '') => {
+                    ws[`A${row + 1}`] = { v: label, t: 's', s: STYLES.labelAuto };
+                    ws[`B${row + 1}`] = { f: formula, s: STYLES.valueAuto, numFmt: format };
+                    ws[`C${row + 1}`] = { v: note, t: 's', s: STYLES.notes };
+                    rowHeights.push({ hpt: 20 });
+                    row++;
+                };
+
+                const addFinalRow = (label, formula, format = '@', note = '') => {
+                    ws[`A${row + 1}`] = { v: label, t: 's', s: STYLES.labelFinal };
+                    ws[`B${row + 1}`] = { f: formula, s: STYLES.valueFinal, numFmt: format };
+                    ws[`C${row + 1}`] = { v: note, t: 's', s: STYLES.notes };
+                    rowHeights.push({ hpt: 28 });
+                    row++;
+                };
+
+                // REVISI FINAL: Deklarasikan semua variabel penanda baris formula dengan 'let' agar tidak terjadi ReferenceError
+                // Detail Produk
+                let rNama = 0, rHargaJual = 0, rDiskonSeller = 0, rHpp = 0, rPackaging = 0;
+                // Biaya Platform
+                let rSellerType = 0, rPlatformRate = 0, rDynamicRate = 0, rLogistics = 0;
+                let rPreOrder = 0, rIsNewShop = 0, rOrderCondition = 0;
+                // Promo
+                let rVoucherPercent = 0, rVoucherRupiah = 0, rAdsPerOrder = 0, rAffiliateRate = 0;
+                let rGmvMaxActive = 0, rGmvMaxBudget = 0, rTotalGmv = 0, rGrowthXtraActive = 0;
+                // Target
+                let rTargetMargin = 0, rDailyOrders = 0;
+                // Formula
+                let rBasisKomisi = 0, rPlatformEffective = 0, rRawPlatform = 0, rProgramSavings = 0;
+                let rPlatformEffNet = 0, rDynamicComm = 0, rProcessingFee = 0, rLogisticsEff = 0;
+                let rVoucherTotal = 0, rAffiliateComm = 0, rReturnFee = 0;
+                // Hasil
+                let rPayout = 0, rNetProfit = 0, rMarginPercent = 0, rStatus = 0, rBep = 0, rRecommended = 0;
+
+                // SECTION 1: DETAIL PRODUK
+                addSectionHeader('📋 DETAIL PRODUK & KEMASAN');
+                rowHeights.push({ hpt: 20 });
+                addInputRow('Nama Produk', namaProduk, '@', 'Dapat diganti langsung');
+                rHargaJual = row + 1; addInputRow('Harga Jual Buyer', hargaJual, '"Rp"#,##0', 'Harga sebelum potongan diskon');
+                rDiskonSeller = row + 1; addInputRow('Diskon Seller ke Buyer', diskonSeller, '"Rp"#,##0', 'Diskon langsung pemotong basis komisi');
+                rHpp = row + 1; addInputRow('Modal / HPP Produk', hpp, '"Rp"#,##0', 'Harga pokok pembelian barang');
+                rPackaging = row + 1; addInputRow('Biaya Packaging Pengiriman', packagingCost, '"Rp"#,##0', 'Biaya pembungkus paket');
+
+                // SECTION 2: BIAYA PLATFORM
+                addSectionHeader('📦 BIAYA PLATFORM TOKOPEDIA');
+                rSellerType = row + 1; addInputRow('Jenis Seller', sellerType, '@', 'Regular Merchant / Power Merchant / Power Merchant Pro');
+                rPlatformRate = row + 1; addInputRow('Komisi Platform Dasar (%)', platformRate, '0.0%', 'Tarif dasar komisi');
+                rDynamicRate = row + 1; addInputRow('Komisi Dinamis (%)', dynamicRate, '0.0%', 'Tarif dinamis komisi dasar');
+                rLogistics = row + 1; addInputRow('Biaya Layanan Logistik', logisticsFeeInput, '"Rp"#,##0', 'Biaya layanan logistik real-time');
+                rPreOrder = row + 1; addInputRow('Produk Pre-Order?', isPreOrder ? 'YA' : 'TIDAK', '@', 'Ada tambahan +3.0% komisi jika YA');
+                rIsNewShop = row + 1; addInputRow('Toko Baru?', isNewShop ? 'YA' : 'TIDAK', '@', 'Bebas biaya pemrosesan jika YA');
+                rOrderCondition = row + 1; addInputRow('Status Kondisi Pesanan', orderCondition.toUpperCase(), '@', 'NORMAL / RETUR / GAGAL');
+
+                // SECTION 3: BIAYA PROMO
+                addSectionHeader('📣 BIAYA PROMO, PROGRAM & DISKON');
+                rVoucherPercent = row + 1; addInputRow('Voucher Diskon Seller (%)', voucherDiscountPercent, '0.00%', 'Diskon promosi toko %');
+                rVoucherRupiah = row + 1; addFormulaRow('Voucher Diskon Seller (Rp)', `=B${rHargaJual}*(B${rVoucherPercent}/100)`, '"Rp"#,##0', 'Diskon promosi toko nominal (sinkron)');
+                rAdsPerOrder = row + 1; addInputRow('Biaya Iklan / Ads Per Order', adsPerOrder, '"Rp"#,##0', 'Alokasi pemasaran per item');
+                rAffiliateRate = row + 1; addInputRow('Komisi Affiliate (%)', affiliateRate, '0.00%', 'Komisi affiliate program');
+                rGmvMaxActive = row + 1; addInputRow('GMV Max Aktif?', isGmvMaxActive ? 'YA' : 'TIDAK', '@', 'Opsi: YA / TIDAK');
+                rGmvMaxBudget = row + 1; addInputRow('Budget GMV Max / Bulan', gmvMaxBudget, '"Rp"#,##0', 'Budget spend ads bulanan');
+                rTotalGmv = row + 1; addInputRow('Total Realisasi GMV Toko / Bulan', totalGmv, '"Rp"#,##0', 'Total omset bulanan toko');
+                rGrowthXtraActive = row + 1; addInputRow('Growth Xtra Aktif?', isGrowthXtraActive ? 'YA' : 'TIDAK', '@', 'Opsi: YA / TIDAK');
+
+                // SECTION 4: TARGET PENJUALAN
+                addSectionHeader('🎯 TARGET PENJUALAN');
+                rTargetMargin = row + 1; addInputRow('Target Margin Bersih (%)', targetMargin, '0.0%', 'Target keuntungan per pesanan');
+                rDailyOrders = row + 1; addInputRow('Estimasi Order Per Hari (Pcs)', dailyOrdersTarget, '#,##0', 'Target volume penjualan harian');
+
+                // SECTION 5: PROSES KALKULASI FORMULA EXCEL
+                addSectionHeader('⚡ PROSES KALKULASI OTOMATIS (FORMULA EXCEL)');
+                
+                rBasisKomisi = row + 1; 
+                addFormulaRow('Basis Perhitungan Komisi', `=MAX(0, B${rHargaJual}-B${rDiskonSeller})`, '"Rp"#,##0', 'Harga netto dikurangi diskon langsung');
+                
+                const fFailed = `B${rOrderCondition}="GAGAL"`;
+                
+                rPlatformEffective = row + 1; 
+                addFormulaRow('Persentase Platform Efektif', `=IF(${fFailed}, 0, IF(OR(B${rPlatformRate}=10, B${rPlatformRate}=10.0), 8.0, B${rPlatformRate}) + IF(B${rPreOrder}="YA", 3.0, 0))`, '0.0%', 'Auto diskon 10% -> 8% & surcharge PO 3%');
+                
+                rRawPlatform = row + 1; 
+                addFormulaRow('Biaya Komisi Platform Dasar', `=B${rBasisKomisi}*(B${rPlatformEffective}/100)`, '"Rp"#,##0');
+                
+                let rGmvRatio = row + 1;
+                addFormulaRow('Rasio GMV Max', `=IF(B${rTotalGmv}>0, B${rGmvMaxBudget}/B${rTotalGmv}, 0)`, '0.00%', 'Rasio budget ads vs total GMV toko');
+
+                let rProgramDiscountPercent = row + 1;
+                addFormulaRow('Diskon Hemat Program (%)', 
+                    `=IF(B${rSellerType}="Regular Merchant", 0, IF(AND(B${rGmvMaxActive}="YA", B${rGrowthXtraActive}="YA"), IF(B${rGmvRatio}>=0.03, 8.18, 7.50), IF(B${rGmvMaxActive}="YA", IF(B${rGmvRatio}>=0.03, 6.45, 2.70), IF(B${rGrowthXtraActive}="YA", 4.80, 0))))`, 
+                    '0.00%', 'Tingkat penghematan platform dari komisi dasar'
+                );
+
+                rProgramSavings = row + 1; 
+                addFormulaRow('Total Penghematan Program', `=B${rRawPlatform}*(B${rProgramDiscountPercent}/100)`, '"Rp"#,##0', 'Dihitung dari komisi platform dasar');
+                
+                rPlatformEffNet = row + 1; 
+                addFormulaRow('Biaya Komisi Platform Netto', `=MAX(0, B${rRawPlatform}-B${rProgramSavings})`, '"Rp"#,##0');
+                
+                rDynamicComm = row + 1; 
+                addFormulaRow('Biaya Komisi Dinamis (Cap)', `=IF(${fFailed}, 0, MIN(650000, B${rBasisKomisi}*(B${rDynamicRate}/100)))`, '"Rp"#,##0', 'Capped maksimal Rp650.000/item');
+                
+                rProcessingFee = row + 1; 
+                addFormulaRow('Biaya Pemrosesan Order', `=IF(OR(${fFailed}, B${rIsNewShop}="YA"), 0, 1250)`, '"Rp"#,##0');
+                
+                rLogisticsEff = row + 1; 
+                addFormulaRow('Biaya Layanan Logistik', `=IF(${fFailed}, 0, MIN(10110, B${rLogistics}))`, '"Rp"#,##0', 'Maksimal Rp 10.110 per transaksi');
+                
+                rAffiliateComm = row + 1; 
+                addFormulaRow('Biaya Komisi Affiliate', `=IF(${fFailed}, 0, B${rBasisKomisi}*(B${rAffiliateRate}/100))`, '"Rp"#,##0');
+                
+                rReturnFee = row + 1; 
+                addFormulaRow('Kontribusi Biaya Retur', `=IF(B${rOrderCondition}="RETUR", 5000, 0)`, '"Rp"#,##0');
+
+                // SECTION 6
+                addSectionHeader('💰 HASIL AKHIR & TARGET PROFIT');
+                rPayout = row + 1; 
+                addFormulaRow('Dana Masuk ke Seller (Payout)', `=B${rBasisKomisi}-(B${rPlatformEffNet}+B${rDynamicComm}+B${rProcessingFee}+B${rLogisticsEff}+B${rAffiliateComm}+B${rVoucherRupiah})`, '"Rp"#,##0', 'Saldo yang ditransfer ke akun seller');
+                
+                rNetProfit = row + 1; 
+                addFinalRow('ESTIMASI LABA BERSIH PER UNIT', `=B${rPayout}-B${rHpp}-B${rPackaging}-B${rAdsPerOrder}-B${rReturnFee}`, '"Rp"#,##0', 'Profit bersih akhir setelah semua potongan');
+                
+                rMarginPercent = row + 1; 
+                addFormulaRow('Margin Keuntungan Bersih (%)', `=IF(B${rBasisKomisi}>0, B${rNetProfit}/B${rBasisKomisi}, 0)`, '0.0%', 'Persentase margin terhadap basis komisi');
+                
+                rStatus = row + 1;
+                ws[`A${rStatus}`] = { v: 'STATUS KESEHATAN MARGIN', t: 's', s: STYLES.labelOutput };
+                ws[`B${rStatus}`] = { f: `=IF(B${rMarginPercent}>=(B${rTargetMargin}/100), "TARGET TERPENUHI ✅", "DI BAWAH TARGET ⚠️")`, s: STYLES.statusHealthy, t: 's' };
+                ws[`C${rStatus}`] = { v: 'Otomatis berubah jika input target diubah', t: 's', s: STYLES.notes };
+                rowHeights.push({ hpt: 22 });
+                row++;
+
+                rBep = row + 1; 
+                addFinalRow('HARGA MINIMUM BREAK-EVEN (BEP)', `=ROUND((B${rHpp}+B${rPackaging}+B${rProcessingFee}+B${rLogisticsEff}+B${rAdsPerOrder}+B${rVoucherRupiah}+B${rReturnFee}-B${rDiskonSeller}*((B${rPlatformEffective}/100)*(1-(B${rProgramDiscountPercent}/100))+(B${rDynamicRate}/100)+(B${rAffiliateRate}/100)))/(1-((B${rPlatformEffective}/100)*(1-(B${rProgramDiscountPercent}/100))+(B${rDynamicRate}/100)+(B${rAffiliateRate}/100)+(B${rVoucherPercent}/100))), 0)`, '"Rp"#,##0', 'Harga jual minimum agar tidak merugi');
+
+                rRecommended = row + 1;
+                addFinalRow('REKOMENDASI JUAL MINIMUM', `=MAX(B${rHargaJual}, ROUND((B${rHpp}+B${rPackaging}+B${rPlatformEffNet}+B${rDynamicComm}+B${rProcessingFee}+B${rLogisticsEff}+B${rAffiliateComm}+B${rVoucherRupiah}+B${rAdsPerOrder}+B${rReturnFee})/(1-(B${rTargetMargin}/100)), 0))`, '"Rp"#,##0', 'Rekomendasi harga berdasarkan Target Margin');
+
+                // Footer Info
+                row += 2;
+                ws[`A${row + 1}`] = { v: `File ini digenerate otomatis oleh warasberbisnis. Nilai dinamis menggunakan formula Excel murni.`, t: 's', s: STYLES.notes };
+                merges.push({ s: { r: row, c: 0 }, e: { r: row, c: 2 } });
+                rowHeights.push({ hpt: 18 });
+
+                ws['!merges'] = merges;
+                ws['!rows'] = rowHeights;
+                ws['!cols'] = [{ wch: 38 }, { wch: 22 }, { wch: 65 }];
+                
+                const maxRow = row + 2;
+                ws['!ref'] = `A1:C${maxRow}`;
+
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Hasil Perhitungan');
+
+                // Excel data drop-downs
+                ws['!dataValidation'] = [
+                    { sqref: `B${rPreOrder}`, type: 'list', formula1: '"YA,TIDAK"' },
+                    { sqref: `B${rSellerType}`, type: 'list', formula1: '"Regular Merchant,Power Merchant,Power Merchant Pro"' },
+                    { sqref: `B${rIsNewShop}`, type: 'list', formula1: '"YA,TIDAK"' },
+                    { sqref: `B${rOrderCondition}`, type: 'list', formula1: '"NORMAL,RETUR,GAGAL"' },
+                    { sqref: `B${rGmvMaxActive}`, type: 'list', formula1: '"YA,TIDAK"' },
+                    { sqref: `B${rGrowthXtraActive}`, type: 'list', formula1: '"YA,TIDAK"' }
+                ];
+
+                const wbout = XLSX.write(wb, { bookType: 'xlsx', cellStyles: true, type: 'array' });
+                const blob = new Blob([wbout], { type: 'application/octet-stream' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const cleanName = namaProduk.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                const today = new Date().toISOString().split('T')[0];
+                a.href = url;
+                a.download = `Kalkulasi_Profit_${cleanName}_${today}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            };
+
+            return (
+                <div className="min-h-screen pb-16">
+                    {/* Header */}
+                    <header className="bg-emerald-600 text-white shadow-sm border-b border-emerald-700 py-6 px-4 mb-8">
+                        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                {/* Branding Logo Waras Berbisnis */}
+                                <div className="p-1.5 bg-white/10 rounded-xl flex items-center justify-center">
+                                    <WarasLogo />
+                                </div>
+                                <div>
+                                    <h1 className="text-xl md:text-2xl font-extrabold tracking-tight flex items-center gap-2">
+                                        Kalkulator Tokopedia 2026
+                                        <span className="text-xs bg-emerald-800 text-emerald-200 px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider">Regulasi Baru</span>
+                                    </h1>
+                                    <p className="text-xs md:text-sm text-emerald-100 mt-0.5">
+                                        Simulasi profit presisi, skema GMV Max, Growth Xtra & logistik update per 1 Mei 2026 (Diakses pada: {headerDate})
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            {/* Action Buttons & Info - REVISI: Tombol Export diletakkan di sisi kiri dari "Perhitungan real-time tanpa submit" */}
+                            <div className="flex flex-wrap items-center gap-4">
+                                <button
+                                    onClick={exportToExcel}
+                                    className="bg-white hover:bg-emerald-50 text-emerald-700 hover:text-emerald-800 font-bold text-sm px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2 border border-emerald-200"
+                                >
+                                    <i className="fa-solid fa-file-excel text-lg text-emerald-600"></i>
+                                    Export Excel (.xlsx)
+                                </button>
+
+                                <div className="flex items-center gap-2 text-xs text-emerald-100 bg-emerald-800/50 py-2.5 px-4 rounded-xl border border-emerald-500/20">
+                                    <i className="fa-solid fa-circle-info"></i>
+                                    <span>Perhitungan real-time tanpa submit</span>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Main Container */}
+                    <main className="max-w-7xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        
+                        {/* Left Input Panel (7 cols) */}
+                        <div className="lg:col-span-7 space-y-6">
+
+                            {/* Card 1: Detail Produk & Kemasan */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                                <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+                                    <i className="fa-solid fa-box text-emerald-600"></i>
+                                    <h2 className="font-bold text-slate-900">Detail Produk & Kemasan</h2>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">Nama Produk</label>
+                                        <input 
+                                            type="text" 
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm font-semibold text-slate-800"
+                                            value={namaProduk}
+                                            onChange={(e) => setNamaProduk(e.target.value)}
+                                            placeholder="Masukkan nama produk..."
+                                        />
+                                    </div>
+
+                                    <FormattedNumberInput 
+                                        label="Harga Jual Buyer" 
+                                        value={hargaJual} 
+                                        onChange={setHargaJual} 
+                                    />
+
+                                    <FormattedNumberInput 
+                                        label="Diskon Seller ke Buyer" 
+                                        value={diskonSeller} 
+                                        onChange={setDiskonSeller} 
+                                        info="Diskon langsung pemotong basis komisi"
+                                    />
+
+                                    <FormattedNumberInput 
+                                        label="Modal / HPP Produk" 
+                                        value={hpp} 
+                                        onChange={setHpp} 
+                                    />
+
+                                    <FormattedNumberInput 
+                                        label="Biaya Packaging Pengiriman" 
+                                        value={packagingCost} 
+                                        onChange={setPackagingCost} 
+                                        info="Biaya pembungkus paket aman"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Card 2: Biaya Platform & Pengiriman */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                                <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+                                    <i className="fa-solid fa-shield-halved text-emerald-600"></i>
+                                    <h2 className="font-bold text-slate-900">Biaya Platform & Pengiriman</h2>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">Jenis Seller Tokopedia</label>
+                                        <div className="grid grid-cols-3 gap-1.5">
+                                            {['Regular Merchant', 'Power Merchant', 'Power Merchant Pro'].map((type) => (
+                                                <button
+                                                    key={type}
+                                                    type="button"
+                                                    onClick={() => setSellerType(type)}
+                                                    className={`px-1 py-2 rounded-lg text-[10px] font-bold border transition-all ${
+                                                        sellerType === type 
+                                                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-500/15'
+                                                            : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600'
+                                                    }`}
+                                                >
+                                                    {type.replace(" Merchant", "")}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <FormattedNumberInput 
+                                        label="Biaya Layanan Logistik (Rp)" 
+                                        value={logisticsFeeInput} 
+                                        onChange={setLogisticsFeeInput} 
+                                        info="Maksimal ditalangi sistem Rp10.110 sebelum pajak"
+                                    />
+
+                                    {/* Platform rate with special 10% auto-diskon warning */}
+                                    <div>
+                                        <PercentInput 
+                                            label="Komisi Platform (%)" 
+                                            value={platformRate} 
+                                            onChange={setPlatformRate} 
+                                        />
+                                        {calculations.isPlatformRate10 && (
+                                            <p className="text-[10px] text-emerald-600 font-bold mt-1">
+                                                🎉 Tarif 10% mendapat auto-diskon 20% dari platform → tarif efektif yang digunakan: 8%
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Dynamic rate with cap Rp650.000 warning */}
+                                    <div>
+                                        <PercentInput 
+                                            label="Komisi Dinamis (%)" 
+                                            value={dynamicRate} 
+                                            onChange={setDynamicRate} 
+                                        />
+                                        <p className="text-[10px] text-slate-400 mt-1">
+                                            Batas maksimum: Rp650.000/item (berlaku sejak 18 Mei 2026, Tokopedia & TikTok Shop)
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">Kondisi Status Paket</label>
+                                        <div className="grid grid-cols-3 gap-1.5">
+                                            {[
+                                                { id: 'normal', label: 'Normal' },
+                                                { id: 'retur', label: 'Retur' },
+                                                { id: 'gagal', label: 'Gagal Kirim' }
+                                            ].map(cond => (
+                                                <button
+                                                    key={cond.id}
+                                                    type="button"
+                                                    onClick={() => setOrderCondition(cond.id)}
+                                                    className={`py-2 rounded-lg text-xs font-bold border text-center transition-all ${
+                                                        orderCondition === cond.id
+                                                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-500/15'
+                                                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                                                    }`}
+                                                >
+                                                    {cond.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Sub-toggles inside platforms */}
+                                    <div className="flex flex-col gap-3 justify-center pt-2">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-semibold text-slate-700">Produk Pre-Order (PO)?</span>
+                                            <label className="relative inline-flex items-center cursor-pointer select-none">
+                                                <input 
+                                                    type="checkbox" 
+                                                    className="sr-only peer" 
+                                                    checked={isPreOrder}
+                                                    onChange={(e) => setIsPreOrder(e.target.checked)}
+                                                />
+                                                <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                                            </label>
+                                        </div>
+
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-semibold text-slate-700">Toko Baru (50 Order Free)?</span>
+                                            <label className="relative inline-flex items-center cursor-pointer select-none">
+                                                <input 
+                                                    type="checkbox" 
+                                                    className="sr-only peer" 
+                                                    checked={isNewShop}
+                                                    onChange={(e) => setIsNewShop(e.target.checked)}
+                                                />
+                                                <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            {/* Card 3: Biaya Promo & Diskon (Includes Voucher Sync) */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                                <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+                                    <i className="fa-solid fa-bullhorn text-emerald-600"></i>
+                                    <h2 className="font-bold text-slate-900">Biaya Promo & Diskon</h2>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    
+                                    {/* Real-time linked fields with explanations */}
+                                    <div>
+                                        <PercentInput 
+                                            label="Voucher Diskon Toko (%)" 
+                                            value={voucherDiscountPercent} 
+                                            onChange={handleVoucherPercentChange} 
+                                        />
+                                        <p className="text-[10px] text-slate-400 mt-1">
+                                            Voucher toko tidak mengurangi basis komisi — hanya mengurangi penerimaan seller
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <FormattedNumberInput 
+                                            label="Voucher Diskon Toko (Rp)" 
+                                            value={voucherDiscountRupiah} 
+                                            onChange={handleVoucherRupiahChange} 
+                                        />
+                                        <p className="text-[10px] text-slate-400 mt-1">
+                                            Otomatis sinkron dengan input persentase diskon
+                                        </p>
+                                    </div>
+
+                                    <FormattedNumberInput 
+                                        label="Alokasi Biaya Iklan / Ads per Order (Rp)" 
+                                        value={adsPerOrder} 
+                                        onChange={setAdsPerOrder} 
+                                    />
+
+                                    <PercentInput 
+                                        label="Komisi Affiliate Toko (%)" 
+                                        value={affiliateRate} 
+                                        onChange={setAffiliateRate} 
+                                    />
+
+                                </div>
+                            </div>
+
+                            {/* Seller Tier & GMV Max Program Section */}
+                            {sellerType !== 'Regular Merchant' && (
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+                                        <i className="fa-solid fa-gift text-emerald-600"></i>
+                                        <h2 className="font-bold text-slate-900">Program Benefit Seller ({sellerType})</h2>
+                                    </div>
+                                    <div className="space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <span className="text-sm font-semibold text-slate-700">Aktifkan Program GMV Max?</span>
+                                                <p className="text-xs text-slate-400">Hemat komisi platform dengan target threshold budget 3%</p>
+                                            </div>
+                                            <label className="relative inline-flex items-center cursor-pointer select-none">
+                                                <input 
+                                                    type="checkbox" 
+                                                    className="sr-only peer" 
+                                                    checked={isGmvMaxActive}
+                                                    onChange={(e) => setIsGmvMaxActive(e.target.checked)}
+                                                />
+                                                <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                                            </label>
+                                        </div>
+
+                                        {isGmvMaxActive && (
+                                            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <FormattedNumberInput 
+                                                        label="Budget GMV Max / bulan (Rp)"
+                                                        value={gmvMaxBudget}
+                                                        onChange={setGmvMaxBudget}
+                                                    />
+                                                    <FormattedNumberInput 
+                                                        label="Total GMV Toko / bulan (Rp)"
+                                                        value={totalGmv}
+                                                        onChange={setTotalGmv}
+                                                    />
+                                                </div>
+
+                                                {/* Threshold analysis display */}
+                                                <div className="pt-2 border-t border-slate-200">
+                                                    {calculations.isGmvAtLeast3Percent ? (
+                                                        <div className="space-y-1">
+                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                                                                Rasio GMV Max: {calculations.gmvRatio.toFixed(2)}% ✓ — memenuhi threshold, diskon berlaku seluruh toko
+                                                            </span>
+                                                            <p className="text-xs text-slate-600 font-medium">
+                                                                Diskon komisi berlaku untuk semua produk di toko, termasuk yang tidak ada campaign aktif (s/d 6,45%)
+                                                            </p>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="space-y-1">
+                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                                                Rasio GMV Max: {calculations.gmvRatio.toFixed(2)}% — belum memenuhi threshold 3%
+                                                            </span>
+                                                            <p className="text-xs text-slate-600 font-medium">
+                                                                Diskon komisi hanya berlaku per pesanan via campaign aktif (s/d 2,70%). Belum dapat diskon level toko.
+                                                            </p>
+                                                            <p className="text-xs text-rose-600 font-bold">
+                                                                ⚠️ Tambah budget <span className="underline">{formatIDR(calculations.gmvBudgetDeficit)}</span> lagi untuk mencapai threshold diskon seluruh toko (3%).
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="flex items-center justify-between pt-2">
+                                            <div>
+                                                <span className="text-sm font-semibold text-slate-700">Aktifkan Program Growth Xtra?</span>
+                                                <p className="text-xs text-slate-400">Hemat komisi platform 4.80% (level toko)</p>
+                                            </div>
+                                            <label className="relative inline-flex items-center cursor-pointer select-none">
+                                                <input 
+                                                    type="checkbox" 
+                                                    className="sr-only peer" 
+                                                    checked={isGrowthXtraActive}
+                                                    onChange={(e) => setIsGrowthXtraActive(e.target.checked)}
+                                                />
+                                                <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Card 4: Target Penjualan */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                                <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+                                    <i className="fa-solid fa-crosshairs text-emerald-600"></i>
+                                    <h2 className="font-bold text-slate-900">Target Penjualan & Volume</h2>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    
+                                    <PercentInput 
+                                        label="Target Margin Bersih Toko (%)" 
+                                        value={targetMargin} 
+                                        onChange={setTargetMargin} 
+                                    />
+
+                                    <FormattedNumberInput 
+                                        label="Estimasi Order per Hari (Pcs)" 
+                                        value={dailyOrdersTarget} 
+                                        onChange={setDailyOrdersTarget} 
+                                        prefix="" 
+                                    />
+
+                                </div>
+                            </div>
+
+                        </div>
+
+                        {/* Right Summary Panel (5 cols) */}
+                        <div className="lg:col-span-5 space-y-6">
+
+                            {/* 4 Summary Cards */}
+                            <div className="grid grid-cols-2 gap-4">
+                                
+                                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Total Potongan platform</span>
+                                    <h4 className="text-lg md:text-xl font-extrabold text-slate-800">
+                                        {formatPercent(calculations.totalPlatformDeductionPercent)}
+                                    </h4>
+                                    <p className="text-[9px] text-slate-400 mt-0.5">Komisi + promo + ads per unit</p>
+                                </div>
+
+                                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Komisi Efektif Seller</span>
+                                    <h4 className="text-lg md:text-xl font-extrabold text-slate-800">
+                                        {formatPercent(calculations.effectiveCommissionPercent)}
+                                    </h4>
+                                    <p className="text-[9px] text-slate-400 mt-0.5">Platform + dinamis bersih</p>
+                                </div>
+
+                                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Margin Bersih Toko</span>
+                                    <h4 className={`text-lg md:text-xl font-extrabold ${calculations.netMarginPercent >= targetMargin ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                        {formatPercent(calculations.netMarginPercent)}
+                                    </h4>
+                                    <p className="text-[9px] text-slate-400 mt-0.5">Target margin Anda: {targetMargin}%</p>
+                                </div>
+
+                                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Harga Minimum BEP</span>
+                                    <h4 className="text-lg md:text-xl font-extrabold text-emerald-700">
+                                        {formatIDR(calculations.bepPrice)}
+                                    </h4>
+                                    <p className="text-[9px] text-slate-400 mt-0.5">Impas (tanpa laba/rugi)</p>
+                                </div>
+
+                            </div>
+
+                            {/* REVISI 1: Card Rekomendasi Jual Minimum */}
+                            <div className="bg-emerald-50 rounded-2xl shadow-sm border-2 border-emerald-300 p-6 relative overflow-hidden">
+                                <div className="absolute right-0 top-0 translate-x-3 -translate-y-3 opacity-10 text-8xl text-emerald-700">
+                                    <i className="fa-solid fa-lightbulb"></i>
+                                </div>
+                                <div className="relative z-10">
+                                    <span className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-widest block mb-1">Rekomendasi Jual Minimum Ideal</span>
+                                    <h3 className="text-2xl font-black text-emerald-950">
+                                        {formatIDR(calculations.recommendedPrice)}
+                                    </h3>
+                                    <p className="text-xs text-emerald-800 mt-2 font-medium">
+                                        Agar profit per unit bersih Anda mencapai target margin <strong className="text-emerald-950">{targetMargin}%</strong> dari total cost {formatIDR(calculations.totalCostPerOrder)}.
+                                    </p>
+                                    {hargaJual < calculations.recommendedPrice && (
+                                        <p className="text-[10px] text-rose-600 font-bold mt-2 flex items-center gap-1">
+                                            <i className="fa-solid fa-circle-exclamation"></i>
+                                            Harga saat ini di bawah margin target! Pertimbangkan untuk menaikkan harga.
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Proporsi Finansial Visual (HPP, Biaya Toko, Laba stacked bar) */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                                <h3 className="font-bold text-slate-900 mb-3 text-sm">Proporsi Finansial dari Harga Jual</h3>
+                                <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden flex mb-4">
+                                    {/* HPP segment */}
+                                    <div 
+                                        className="bg-rose-500 h-full transition-all duration-300" 
+                                        style={{ width: `${Math.max(5, Math.min(100, ((hpp + packagingCost) / (calculations.basisKomisi || 1)) * 100))}%` }}
+                                        title={`HPP + Pack: ${formatPercent(((hpp + packagingCost) / (calculations.basisKomisi || 1)) * 100)}`}
+                                    ></div>
+                                    {/* Potongan segment */}
+                                    <div 
+                                        className="bg-amber-500 h-full transition-all duration-300" 
+                                        style={{ width: `${Math.max(5, Math.min(100 - ((hpp+packagingCost)/(calculations.basisKomisi || 1))*100, calculations.totalPlatformDeductionPercent))}%` }}
+                                        title={`Biaya Platform & Lainnya: ${formatPercent(calculations.totalPlatformDeductionPercent)}`}
+                                    ></div>
+                                    {/* Profit segment */}
+                                    <div 
+                                        className="bg-emerald-500 h-full transition-all duration-300 flex-1"
+                                        title="Estimasi Profit Bersih"
+                                    ></div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 text-[10px] text-center font-bold">
+                                    <div className="flex items-center justify-center gap-1 text-rose-600">
+                                        <span className="w-2 h-2 bg-rose-500 rounded-full inline-block"></span>
+                                        <span>Modal/Pack ({formatPercent(calculations.basisKomisi > 0 ? ((hpp + packagingCost) / calculations.basisKomisi) * 100 : 0)})</span>
+                                    </div>
+                                    <div className="flex items-center justify-center gap-1 text-amber-600">
+                                        <span className="w-2 h-2 bg-amber-500 rounded-full inline-block"></span>
+                                        <span>Biaya Toko ({formatPercent(calculations.totalPlatformDeductionPercent)})</span>
+                                    </div>
+                                    <div className="flex items-center justify-center gap-1 text-emerald-600">
+                                        <span className="w-2 h-2 bg-emerald-500 rounded-full inline-block"></span>
+                                        <span>Laba Bersih ({formatPercent(calculations.netMarginPercent)})</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Program Benefit Tier Badge with Purple premium styling for Dual Stacked */}
+                            <div className={`rounded-2xl p-6 shadow-md relative overflow-hidden transition-all ${
+                                calculations.programTier.includes('Dual Stacked')
+                                    ? 'bg-purple-900 text-white'
+                                    : 'bg-slate-900 text-white'
+                            }`}>
+                                <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 opacity-10 text-9xl">
+                                    <i className="fa-solid fa-trophy"></i>
+                                </div>
+                                <div className="relative z-10">
+                                    <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold uppercase tracking-wider mb-2">
+                                        <i className="fa-solid fa-award"></i>
+                                        <span>Program Benefit Tier</span>
+                                    </div>
+                                    <h3 className="text-xl font-extrabold tracking-tight text-white mb-2">
+                                        {calculations.programTier}
+                                    </h3>
+                                    <div className="flex items-center gap-2 mt-3 text-xs bg-white/10 py-1.5 px-3 rounded-lg border border-white/10">
+                                        <i className="fa-solid fa-percent text-emerald-400"></i>
+                                        <span>Hemat Komisi Platform: <strong className="text-emerald-300 text-sm">{calculations.programDiscountPercent.toFixed(2)}%</strong></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Proyeksi Bulanan Card */}
+                            <div className="bg-emerald-50 rounded-2xl shadow-sm border border-emerald-200 p-6">
+                                <h3 className="font-bold text-emerald-900 mb-4 text-sm flex items-center gap-2">
+                                    <i className="fa-solid fa-chart-line"></i>
+                                    Proyeksi Hasil Bulanan (30 Hari)
+                                </h3>
+                                <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
+                                    <div className="bg-white p-3 rounded-xl border border-emerald-100">
+                                        <span className="text-slate-500 block">Total Transaksi</span>
+                                        <span className="text-sm font-bold text-slate-800">{calculations.monthlyOrders.toLocaleString('id-ID')} unit</span>
+                                    </div>
+                                    <div className="bg-white p-3 rounded-xl border border-emerald-100">
+                                        <span className="text-slate-500 block">Estimasi Omset</span>
+                                        <span className="text-sm font-bold text-slate-800">{formatIDR(calculations.monthlyRevenue)}</span>
+                                    </div>
+                                    <div className="bg-white p-3 rounded-xl border border-emerald-100 col-span-2 text-center">
+                                        <span className="text-slate-500 block">Proyeksi Bersih Bulanan</span>
+                                        <span className={`text-lg font-extrabold ${calculations.monthlyProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                            {formatIDR(calculations.monthlyProfit)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Interactive Warnings & Alerts */}
+                            <div className="space-y-3">
+                                {sellerType === 'Regular Merchant' && (
+                                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3 text-amber-800">
+                                        <i className="fa-solid fa-triangle-exclamation text-amber-600 mt-1"></i>
+                                        <div>
+                                            <h4 className="font-bold text-xs">Regular Merchant Aktif</h4>
+                                            <p className="text-[11px] mt-0.5">Program diskon GMV Max & Growth Xtra tidak tersedia untuk Regular Merchant. Silakan tingkatkan status toko Anda.</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {calculations.netMarginPercent < targetMargin && calculations.netMarginPercent >= 0 && (
+                                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3 text-amber-800">
+                                        <i className="fa-solid fa-triangle-exclamation text-amber-600 mt-1"></i>
+                                        <div>
+                                            <h4 className="font-bold text-xs">Di Bawah Target Margin</h4>
+                                            <p className="text-[11px] mt-0.5">Margin bersih saat ini ({formatPercent(calculations.netMarginPercent)}) lebih rendah dari target margin yang Anda inginkan ({targetMargin}%).</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {calculations.netProfit < 0 && (
+                                    <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 flex gap-3 text-rose-800 animate-pulse">
+                                        <i className="fa-solid fa-circle-exclamation text-rose-600 mt-1"></i>
+                                        <div>
+                                            <h4 className="font-bold text-xs">Peringatan: Toko Merugi!</h4>
+                                            <p className="text-[11px] mt-0.5">Skenario harga saat ini menghasilkan rugi bersih sebesar {formatIDR(calculations.netProfit)} per item. Naikkan harga atau tekan HPP.</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {orderCondition === 'retur' && (
+                                    <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 flex gap-3 text-rose-800">
+                                        <i className="fa-solid fa-rotate-left text-rose-600 mt-1"></i>
+                                        <div>
+                                            <h4 className="font-bold text-xs">Simulasi Pesanan Diretur</h4>
+                                            <p className="text-[11px] mt-0.5">Semua biaya platform tetap dipotong, dan seller berkontribusi menanggung ongkos kirim retur Rp5.000.</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {orderCondition === 'gagal' && (
+                                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex gap-3 text-blue-800">
+                                        <i className="fa-solid fa-circle-info text-blue-600 mt-1"></i>
+                                        <div>
+                                            <h4 className="font-bold text-xs">Pesanan Gagal Kirim</h4>
+                                            <p className="text-[11px] mt-0.5">Seluruh komisi, ongkir, voucher, dan biaya administrasi dibatalkan (Rp0).</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {isPreOrder && (
+                                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex gap-2 text-amber-800">
+                                        <i className="fa-solid fa-clock text-amber-600 mt-0.5"></i>
+                                        <span className="text-[11px]">Surcharge pre-order <strong>+3.00%</strong> aktif pada komisi platform.</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Detailed Calculations Breakdown Card */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                                <h3 className="font-bold text-slate-900 mb-4 text-base">Rincian Perhitungan (Real-time)</h3>
+                                
+                                <div className="space-y-2.5 text-sm">
+                                    <div className="flex justify-between items-center py-1">
+                                        <span className="text-slate-500 font-medium">Harga Jual Buyer</span>
+                                        <span className="font-bold text-slate-800">{formatIDR(hargaJual)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-1 border-b border-dashed border-slate-100 pb-2">
+                                        <span className="text-slate-500 font-medium">- Diskon Seller</span>
+                                        <span className="font-semibold text-rose-600">{formatIDR(diskonSeller)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-1 bg-slate-50 px-2.5 rounded-lg border border-slate-100">
+                                        <span className="text-slate-700 font-bold">Basis Komisi (Harga Netto)</span>
+                                        <span className="font-extrabold text-emerald-700">{formatIDR(calculations.basisKomisi)}</span>
+                                    </div>
+
+                                    {/* Platform Commission details - POIN 1 */}
+                                    <div className="flex justify-between items-start py-1 pt-2">
+                                        <div>
+                                            <span className="text-slate-500 font-medium flex items-center gap-1">
+                                                - Komisi Platform ({calculations.isPlatformRate10 ? '10% → efektif 8%' : platformRate.toFixed(2) + '%'})
+                                            </span>
+                                            {isPreOrder && (
+                                                <p className="text-[9px] text-amber-600 font-medium">*Termasuk komisi PO +3.00%</p>
+                                            )}
+                                        </div>
+                                        <span className="font-semibold text-rose-600">{formatIDR(calculations.platformCommissionEff)}</span>
+                                    </div>
+
+                                    {/* Program Savings - POIN 3 GMV Max details */}
+                                    {calculations.programSavings > 0 && (
+                                        <div className="flex flex-col py-1 text-emerald-600 bg-emerald-50/50 px-2.5 rounded-lg border border-emerald-100">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-xs font-semibold">+ Hemat Program ({calculations.programTier})</span>
+                                                <span className="font-bold text-xs">+{formatIDR(calculations.programSavings)}</span>
+                                            </div>
+                                            <p className="text-[9px] text-emerald-700 mt-0.5">
+                                                *Dihitung dari nilai komisi platform, bukan dari harga jual
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Dynamic Commission - POIN 2 with Rp650.000 capping information */}
+                                    <div className="flex justify-between items-start py-1">
+                                        <div>
+                                            <span className="text-slate-500 font-medium">
+                                                - Komisi Dinamis ({dynamicRate.toFixed(2)}%)
+                                            </span>
+                                            {calculations.isDynamicCapped && (
+                                                <p className="text-[10px] text-blue-600 font-medium">
+                                                    *Rp650.000 (capped dari {formatIDR(calculations.rawDynamicCommission)})
+                                                </p>
+                                            )}
+                                        </div>
+                                        <span className="font-semibold text-rose-600">{formatIDR(calculations.dynamicCommission)}</span>
+                                    </div>
+
+                                    {/* Fixed Platform Charges */}
+                                    <div className="flex justify-between items-center py-1">
+                                        <span className="text-slate-500 font-medium">
+                                            - Biaya Pemrosesan Order
+                                        </span>
+                                        <span className="font-semibold text-rose-600">
+                                            {calculations.processingFee === 0 ? 'Gratis' : formatIDR(calculations.processingFee)}
+                                        </span>
+                                    </div>
+
+                                    {/* Logistics */}
+                                    <div className="flex justify-between items-start py-1 border-b border-dashed border-slate-100 pb-2">
+                                        <div>
+                                            <span className="text-slate-500 font-medium">
+                                                - Biaya Layanan Logistik
+                                            </span>
+                                            {calculations.isLogisticsCapped && (
+                                                <p className="text-[9px] text-blue-600 font-medium">*Dicap Rp10.110 maks sebelum pajak</p>
+                                            )}
+                                        </div>
+                                        <span className="font-semibold text-rose-600">{formatIDR(calculations.logisticsEff)}</span>
+                                    </div>
+
+                                    {/* Promos, Vouchers, and Ads */}
+                                    <div className="flex justify-between items-center py-1">
+                                        <span className="text-slate-500 font-medium">
+                                            - Total Voucher Diskon Toko
+                                        </span>
+                                        <span className="font-semibold text-rose-600">{formatIDR(calculations.totalVoucherAmount)}</span>
+                                    </div>
+
+                                    <div className="flex justify-between items-center py-1">
+                                        <span className="text-slate-500 font-medium">
+                                            - Alokasi Biaya Iklan / Unit
+                                        </span>
+                                        <span className="font-semibold text-rose-600">{formatIDR(adsPerOrder)}</span>
+                                    </div>
+
+                                    <div className="flex justify-between items-center py-1 border-b border-dashed border-slate-100 pb-2">
+                                        <span className="text-slate-500 font-medium">
+                                            - Komisi Affiliate ({affiliateRate.toFixed(2)}%)
+                                        </span>
+                                        <span className="font-semibold text-rose-600">{formatIDR(calculations.affiliateCommission)}</span>
+                                    </div>
+
+                                    {orderCondition === 'retur' && (
+                                        <div className="flex justify-between items-center py-1 border-b border-dashed border-slate-100 pb-2 text-rose-600">
+                                            <span className="font-medium">- Kontribusi Biaya Retur</span>
+                                            <span className="font-bold">{formatIDR(calculations.returnFee)}</span>
+                                        </div>
+                                    )}
+
+                                    {/* Total Payout */}
+                                    <div className="flex justify-between items-center py-1 bg-slate-50 px-2.5 rounded-lg border border-slate-100">
+                                        <span className="text-slate-700 font-bold">Dana Masuk ke Seller (Payout)</span>
+                                        <span className="font-extrabold text-emerald-700">{formatIDR(calculations.netPayout)}</span>
+                                    </div>
+
+                                    <div className="flex justify-between items-center py-1">
+                                        <span className="text-slate-500 font-medium">- Modal / HPP Produk</span>
+                                        <span className="font-semibold text-rose-600">{formatIDR(hpp)}</span>
+                                    </div>
+
+                                    <div className="flex justify-between items-center py-1 border-b border-dashed border-slate-100 pb-2">
+                                        <span className="text-slate-500 font-medium">- Biaya Packaging Pengiriman</span>
+                                        <span className="font-semibold text-rose-600">{formatIDR(packagingCost)}</span>
+                                    </div>
+
+                                    {/* Final Net Profit */}
+                                    <div className="flex justify-between items-center py-3 border-t-2 border-slate-200 mt-2">
+                                        <span className="text-base font-extrabold text-slate-800">ESTIMASI LABA BERSIH</span>
+                                        <span className={`text-lg font-black ${calculations.netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                            {formatIDR(calculations.netProfit)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </main>
+
+                    {/* Footer */}
+                    <footer className="mt-16 py-8 border-t border-slate-200 bg-white">
+                        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <WarasLogo />
+                                <div>
+                                    <span className="text-sm font-bold text-slate-800 block">Kalkulator Tokopedia 2026</span>
+                                    <span className="text-xs text-slate-500">Powering Smart Commerce Sellers</span>
+                                </div>
+                            </div>
+                            <div className="text-xs text-slate-500 text-center md:text-right">
+                                &copy; 2026 Dibuat oleh <a href="https://www.instagram.com/warasberbisnis/" target="_blank" rel="noopener noreferrer" class="text-emerald-600 hover:text-emerald-700 font-extrabold underline inline-flex items-center gap-1">
+                                    <i className="fa-brands fa-instagram text-sm"></i>
+                                    warasberbisnis
+                                </a>. Semua Hak Cipta Dilindungi.
+                            </div>
+                        </div>
+                    </footer>
+                </div>
+            );
+        }
+
+        // Render React Application
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
