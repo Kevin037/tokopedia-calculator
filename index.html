@@ -14,8 +14,8 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- xlsx-js-style library for premium styled exports -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <!-- ExcelJS CDN (full Data Validation support) -->
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -359,318 +359,190 @@
                 isGmvMaxActive, gmvMaxBudget, totalGmv, isGrowthXtraActive, dailyOrdersTarget, targetMargin
             ]);
 
-            const exportToExcel = () => {
-                const COLOR_TOKENS = {
-                    titleBg: '1A3C2E',       // dark forest green
-                    sectionBg: '2D6A4F',     // medium green
-                    inputBg: 'FFF9C4',       // light yellow
-                    outputBg: 'EBF5EB',      // light green
-                    linkedBg: 'D8F3DC',      // pale green
-                    borderColor: 'B7E4C7',   // soft green border
-                    titleFont: 'FFFFFF',     // white
-                    inputFont: '0000CC',     // blue
-                    outputFont: '000000',    // black
-                    linkFont: '006400',      // dark green
-                    healthyBg: 'EBF5EB',     // light green
-                    healthyFont: '145A32',   // dark forest green
-                    lossBg: 'FFEBEE',        // light red
-                    lossFont: 'C0392B'        // dark red
-                };
-
-                const borderThin = {
-                    top: { style: 'thin', color: { rgb: COLOR_TOKENS.borderColor } },
-                    bottom: { style: 'thin', color: { rgb: COLOR_TOKENS.borderColor } },
-                    left: { style: 'thin', color: { rgb: COLOR_TOKENS.borderColor } },
-                    right: { style: 'thin', color: { rgb: COLOR_TOKENS.borderColor } }
-                };
-
-                const borderMedium = {
-                    top: { style: 'medium', color: { rgb: COLOR_TOKENS.titleBg } },
-                    bottom: { style: 'medium', color: { rgb: COLOR_TOKENS.titleBg } },
-                    left: { style: 'medium', color: { rgb: COLOR_TOKENS.titleBg } },
-                    right: { style: 'medium', color: { rgb: COLOR_TOKENS.titleBg } }
-                };
+            const exportToExcel = async () => {
+                // ─── ExcelJS styles ─────────────────────────────────────────
+                const bdrT = { style: 'thin',   color: { argb: 'FFB7E4C7' } };
+                const bdrM = { style: 'medium', color: { argb: 'FF1A3C2E' } };
+                const border  = { top: bdrT, bottom: bdrT, left: bdrT, right: bdrT };
+                const borderM = { top: bdrM, bottom: bdrM, left: bdrM, right: bdrM };
 
                 const STYLES = {
-                    title: {
-                        font: { name: 'Arial', sz: 13, bold: true, color: { rgb: COLOR_TOKENS.titleFont } },
-                        fill: { patternType: 'solid', fgColor: { rgb: COLOR_TOKENS.titleBg } },
-                        alignment: { horizontal: 'center', vertical: 'center' }
-                    },
-                    subtitle: {
-                        font: { name: 'Arial', sz: 9, italic: true, color: { rgb: '444444' } },
-                        alignment: { horizontal: 'center', vertical: 'center' }
-                    },
-                    legend: {
-                        font: { name: 'Arial', sz: 8, italic: true, color: { rgb: '444444' } },
-                        alignment: { horizontal: 'left', vertical: 'center' }
-                    },
-                    sectionHeader: {
-                        font: { name: 'Arial', sz: 10, bold: true, color: { rgb: COLOR_TOKENS.titleFont } },
-                        fill: { patternType: 'solid', fgColor: { rgb: COLOR_TOKENS.sectionBg } },
-                        alignment: { horizontal: 'left', vertical: 'center' }
-                    },
-                    labelInput: {
-                        font: { name: 'Arial', sz: 10 },
-                        border: borderThin
-                    },
-                    valueInput: {
-                        font: { name: 'Arial', sz: 10, color: { rgb: COLOR_TOKENS.inputFont } },
-                        fill: { patternType: 'solid', fgColor: { rgb: COLOR_TOKENS.inputBg } },
-                        alignment: { horizontal: 'right', vertical: 'center' },
-                        border: borderThin
-                    },
-                    labelAuto: {
-                        font: { name: 'Arial', sz: 10, color: { rgb: COLOR_TOKENS.linkFont } },
-                        border: borderThin
-                    },
-                    valueAuto: {
-                        font: { name: 'Arial', sz: 10, color: { rgb: COLOR_TOKENS.linkFont } },
-                        fill: { patternType: 'solid', fgColor: { rgb: COLOR_TOKENS.linkedBg } },
-                        alignment: { horizontal: 'right', vertical: 'center' },
-                        border: borderThin
-                    },
-                    labelOutput: {
-                        font: { name: 'Arial', sz: 10 },
-                        border: borderThin
-                    },
-                    valueOutput: {
-                        font: { name: 'Arial', sz: 10, color: { rgb: COLOR_TOKENS.outputFont } },
-                        fill: { patternType: 'solid', fgColor: { rgb: COLOR_TOKENS.outputBg } },
-                        alignment: { horizontal: 'right', vertical: 'center' },
-                        border: borderThin
-                    },
-                    labelFinal: {
-                        font: { name: 'Arial', sz: 12, bold: true, color: { rgb: COLOR_TOKENS.titleFont } },
-                        fill: { patternType: 'solid', fgColor: { rgb: COLOR_TOKENS.titleBg } },
-                        alignment: { horizontal: 'left', vertical: 'center' },
-                        border: borderMedium
-                    },
-                    valueFinal: {
-                        font: { name: 'Arial', sz: 12, bold: true, color: { rgb: COLOR_TOKENS.titleFont } },
-                        fill: { patternType: 'solid', fgColor: { rgb: COLOR_TOKENS.titleBg } },
-                        alignment: { horizontal: 'right', vertical: 'center' },
-                        border: borderMedium
-                    },
-                    statusHealthy: {
-                        font: { name: 'Arial', sz: 10, bold: true, color: { rgb: COLOR_TOKENS.healthyFont } },
-                        fill: { patternType: 'solid', fgColor: { rgb: COLOR_TOKENS.healthyBg } },
-                        alignment: { horizontal: 'center', vertical: 'center' },
-                        border: borderThin
-                    },
-                    notes: {
-                        font: { name: 'Arial', sz: 8, italic: true, color: { rgb: '555555' } },
-                        alignment: { horizontal: 'left', vertical: 'center' }
-                    }
+                    title:      { font: { name:'Arial', size:13, bold:true,  color:{argb:'FFFFFFFF'} }, fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FF1A3C2E'}}, alignment:{horizontal:'center',vertical:'middle'} },
+                    subtitle:   { font: { name:'Arial', size:9,  italic:true, color:{argb:'FF444444'} }, alignment:{horizontal:'center',vertical:'middle'} },
+                    legend:     { font: { name:'Arial', size:8,  italic:true, color:{argb:'FF444444'} }, alignment:{horizontal:'left',vertical:'middle'} },
+                    section:    { font: { name:'Arial', size:10, bold:true,  color:{argb:'FFFFFFFF'} }, fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FF2D6A4F'}}, alignment:{horizontal:'left',vertical:'middle'} },
+                    labelInput: { font: { name:'Arial', size:10, color:{argb:'FF000000'} }, border },
+                    valueInput: { font: { name:'Arial', size:10, color:{argb:'FF0000CC'} }, fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF9C4'}}, alignment:{horizontal:'right',vertical:'middle'}, border },
+                    valueInputDD:{ font:{ name:'Arial', size:10, bold:true, color:{argb:'FF0000CC'} }, fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF9C4'}}, alignment:{horizontal:'center',vertical:'middle'}, border },
+                    labelAuto:  { font: { name:'Arial', size:10, color:{argb:'FF006400'} }, border },
+                    valueAuto:  { font: { name:'Arial', size:10, color:{argb:'FF006400'} }, fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFD8F3DC'}}, alignment:{horizontal:'right',vertical:'middle'}, border },
+                    labelFinal: { font: { name:'Arial', size:12, bold:true, color:{argb:'FFFFFFFF'} }, fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FF1A3C2E'}}, alignment:{horizontal:'left',vertical:'middle'}, border:borderM },
+                    valueFinal: { font: { name:'Arial', size:12, bold:true, color:{argb:'FFFFFFFF'} }, fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FF1A3C2E'}}, alignment:{horizontal:'right',vertical:'middle'}, border:borderM },
+                    labelOut:   { font: { name:'Arial', size:10 }, border },
+                    statusOk:   { font: { name:'Arial', size:10, bold:true, color:{argb:'FF145A32'} }, fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFEBF5EB'}}, alignment:{horizontal:'center',vertical:'middle'}, border },
+                    notes:      { font: { name:'Arial', size:8,  italic:true, color:{argb:'FF555555'} }, alignment:{horizontal:'left',vertical:'middle'} }
                 };
 
-                const ws = {};
-                const merges = [];
-                const rowHeights = [];
+                const applyS = (cell, s) => Object.assign(cell, s);
 
-                // Rows structure
-                ws['A1'] = { v: '🧮 TOKOPEDIA REVISED PROFIT SIMULATOR (2026)', t: 's', s: STYLES.title };
-                merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } });
-                rowHeights.push({ hpt: 38 });
+                const wb = new ExcelJS.Workbook();
+                wb.creator = 'warasberbisnis';
+                const ws = wb.addWorksheet('Hasil Perhitungan');
+                ws.columns = [{ width: 38 }, { width: 22 }, { width: 65 }];
 
-                ws['A2'] = { v: `Diunduh pada: ${headerDate} | Hak Cipta warasberbisnis`, t: 's', s: STYLES.subtitle };
-                merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 2 } });
-                rowHeights.push({ hpt: 18 });
+                let rowNum = 0;
+                let rHargaJual=0,rDiskonSeller=0,rHpp=0,rPackaging=0;
+                let rSellerType=0,rPlatformRate=0,rDynamicRate=0,rLogistics=0;
+                let rPreOrder=0,rIsNewShop=0,rOrderCondition=0;
+                let rVoucherPercent=0,rVoucherRupiah=0,rAdsPerOrder=0,rAffiliateRate=0;
+                let rGmvMaxActive=0,rGmvMaxBudget=0,rTotalGmv=0,rGrowthXtraActive=0;
+                let rTargetMargin=0,rDailyOrders=0;
+                let rBasisKomisi=0,rPlatformEffective=0,rRawPlatform=0,rGmvRatio=0;
+                let rProgramDiscountPercent=0,rProgramSavings=0,rPlatformEffNet=0;
+                let rDynamicComm=0,rProcessingFee=0,rLogisticsEff=0,rAffiliateComm=0,rReturnFee=0;
+                let rPayout=0,rNetProfit=0,rMarginPercent=0,rStatus=0,rBep=0,rRecommended=0;
 
-                ws['A3'] = { v: '🔵 Biru = Input Bebas  |  🟢 Hijau = Formula Otomatis Dinamis', t: 's', s: STYLES.legend };
-                merges.push({ s: { r: 2, c: 0 }, e: { r: 2, c: 2 } });
-                rowHeights.push({ hpt: 18 });
-
-                rowHeights.push({ hpt: 10 });
-
-                let row = 4;
-
-                const addSectionHeader = (label) => {
-                    ws[`A${row + 1}`] = { v: label, t: 's', s: STYLES.sectionHeader };
-                    merges.push({ s: { r: row, c: 0 }, e: { r: row, c: 2 } });
-                    rowHeights.push({ hpt: 22 });
-                    row++;
+                const addMergedRow = (label, style, height = 22) => {
+                    rowNum++;
+                    ws.getRow(rowNum).height = height;
+                    const cell = ws.getCell(rowNum, 1);
+                    cell.value = label;
+                    applyS(cell, style);
+                    ws.mergeCells(rowNum, 1, rowNum, 3);
                 };
 
-                const addInputRow = (label, value, format = '@', note = '') => {
-                    ws[`A${row + 1}`] = { v: label, t: 's', s: STYLES.labelInput };
-                    ws[`B${row + 1}`] = { v: value, t: typeof value === 'number' ? 'n' : 's', s: STYLES.valueInput, numFmt: format };
-                    ws[`C${row + 1}`] = { v: note, t: 's', s: STYLES.notes };
-                    rowHeights.push({ hpt: 20 });
-                    row++;
+                const addSection = (label) => {
+                    rowNum++;
+                    ws.getRow(rowNum).height = 22;
+                    const cell = ws.getCell(rowNum, 1);
+                    cell.value = label;
+                    applyS(cell, STYLES.section);
+                    ws.mergeCells(rowNum, 1, rowNum, 3);
                 };
 
-                const addFormulaRow = (label, formula, format = '@', note = '') => {
-                    ws[`A${row + 1}`] = { v: label, t: 's', s: STYLES.labelAuto };
-                    ws[`B${row + 1}`] = { f: formula, s: STYLES.valueAuto, numFmt: format };
-                    ws[`C${row + 1}`] = { v: note, t: 's', s: STYLES.notes };
-                    rowHeights.push({ hpt: 20 });
-                    row++;
+                const addInput = (label, value, numFmt, note, isDD = false) => {
+                    rowNum++;
+                    ws.getRow(rowNum).height = 20;
+                    const cA = ws.getCell(rowNum, 1); cA.value = label; applyS(cA, STYLES.labelInput);
+                    const cB = ws.getCell(rowNum, 2); cB.value = value;
+                    if (numFmt) cB.numFmt = numFmt;
+                    applyS(cB, isDD ? STYLES.valueInputDD : STYLES.valueInput);
+                    const cC = ws.getCell(rowNum, 3); cC.value = note; applyS(cC, STYLES.notes);
+                    return rowNum;
                 };
 
-                const addFinalRow = (label, formula, format = '@', note = '') => {
-                    ws[`A${row + 1}`] = { v: label, t: 's', s: STYLES.labelFinal };
-                    ws[`B${row + 1}`] = { f: formula, s: STYLES.valueFinal, numFmt: format };
-                    ws[`C${row + 1}`] = { v: note, t: 's', s: STYLES.notes };
-                    rowHeights.push({ hpt: 28 });
-                    row++;
+                const addFormula = (label, formula, numFmt, note, isFinal = false) => {
+                    rowNum++;
+                    ws.getRow(rowNum).height = isFinal ? 28 : 20;
+                    const cA = ws.getCell(rowNum, 1); cA.value = label; applyS(cA, isFinal ? STYLES.labelFinal : STYLES.labelAuto);
+                    const cB = ws.getCell(rowNum, 2); cB.value = { formula, result: 0 };
+                    if (numFmt) cB.numFmt = numFmt;
+                    applyS(cB, isFinal ? STYLES.valueFinal : STYLES.valueAuto);
+                    const cC = ws.getCell(rowNum, 3); cC.value = note; applyS(cC, isFinal ? STYLES.labelFinal : STYLES.notes);
+                    return rowNum;
                 };
 
-                // REVISI FINAL: Deklarasikan semua variabel penanda baris formula dengan 'let' agar tidak terjadi ReferenceError
-                // Detail Produk
-                let rNama = 0, rHargaJual = 0, rDiskonSeller = 0, rHpp = 0, rPackaging = 0;
-                // Biaya Platform
-                let rSellerType = 0, rPlatformRate = 0, rDynamicRate = 0, rLogistics = 0;
-                let rPreOrder = 0, rIsNewShop = 0, rOrderCondition = 0;
-                // Promo
-                let rVoucherPercent = 0, rVoucherRupiah = 0, rAdsPerOrder = 0, rAffiliateRate = 0;
-                let rGmvMaxActive = 0, rGmvMaxBudget = 0, rTotalGmv = 0, rGrowthXtraActive = 0;
-                // Target
-                let rTargetMargin = 0, rDailyOrders = 0;
-                // Formula
-                let rBasisKomisi = 0, rPlatformEffective = 0, rRawPlatform = 0, rProgramSavings = 0;
-                let rPlatformEffNet = 0, rDynamicComm = 0, rProcessingFee = 0, rLogisticsEff = 0;
-                let rVoucherTotal = 0, rAffiliateComm = 0, rReturnFee = 0;
-                // Hasil
-                let rPayout = 0, rNetProfit = 0, rMarginPercent = 0, rStatus = 0, rBep = 0, rRecommended = 0;
+                // Header
+                addMergedRow('🧮 TOKOPEDIA REVISED PROFIT SIMULATOR (2026)', STYLES.title, 38);
+                addMergedRow(`Diunduh pada: ${headerDate} | Hak Cipta warasberbisnis`, STYLES.subtitle, 18);
+                addMergedRow('🔵 Biru = Input Bebas  |  🟢 Hijau = Formula Otomatis Dinamis', STYLES.legend, 18);
+                rowNum++; ws.getRow(rowNum).height = 10;
 
-                // SECTION 1: DETAIL PRODUK
-                addSectionHeader('📋 DETAIL PRODUK & KEMASAN');
-                rowHeights.push({ hpt: 20 });
-                addInputRow('Nama Produk', namaProduk, '@', 'Dapat diganti langsung');
-                rHargaJual = row + 1; addInputRow('Harga Jual Buyer', hargaJual, '"Rp"#,##0', 'Harga sebelum potongan diskon');
-                rDiskonSeller = row + 1; addInputRow('Diskon Seller ke Buyer', diskonSeller, '"Rp"#,##0', 'Diskon langsung pemotong basis komisi');
-                rHpp = row + 1; addInputRow('Modal / HPP Produk', hpp, '"Rp"#,##0', 'Harga pokok pembelian barang');
-                rPackaging = row + 1; addInputRow('Biaya Packaging Pengiriman', packagingCost, '"Rp"#,##0', 'Biaya pembungkus paket');
+                // Section 1
+                addSection('📋 DETAIL PRODUK & KEMASAN');
+                addInput('Nama Produk', namaProduk, null, 'Dapat diganti langsung');
+                rHargaJual    = addInput('Harga Jual Buyer', hargaJual, '"Rp"#,##0', 'Harga sebelum potongan diskon');
+                rDiskonSeller = addInput('Diskon Seller ke Buyer', diskonSeller, '"Rp"#,##0', 'Diskon langsung pemotong basis komisi');
+                rHpp          = addInput('Modal / HPP Produk', hpp, '"Rp"#,##0', 'Harga pokok pembelian barang');
+                rPackaging    = addInput('Biaya Packaging Pengiriman', packagingCost, '"Rp"#,##0', 'Biaya pembungkus paket');
 
-                // SECTION 2: BIAYA PLATFORM
-                addSectionHeader('📦 BIAYA PLATFORM TOKOPEDIA');
-                rSellerType = row + 1; addInputRow('Jenis Seller', sellerType, '@', 'Regular Merchant / Power Merchant / Power Merchant Pro');
-                rPlatformRate = row + 1; addInputRow('Komisi Platform Dasar (%)', platformRate, '0.0%', 'Tarif dasar komisi');
-                rDynamicRate = row + 1; addInputRow('Komisi Dinamis (%)', dynamicRate, '0.0%', 'Tarif dinamis komisi dasar');
-                rLogistics = row + 1; addInputRow('Biaya Layanan Logistik', logisticsFeeInput, '"Rp"#,##0', 'Biaya layanan logistik real-time');
-                rPreOrder = row + 1; addInputRow('Produk Pre-Order?', isPreOrder ? 'YA' : 'TIDAK', '@', 'Ada tambahan +3.0% komisi jika YA');
-                rIsNewShop = row + 1; addInputRow('Toko Baru?', isNewShop ? 'YA' : 'TIDAK', '@', 'Bebas biaya pemrosesan jika YA');
-                rOrderCondition = row + 1; addInputRow('Status Kondisi Pesanan', orderCondition.toUpperCase(), '@', 'NORMAL / RETUR / GAGAL');
+                // Section 2
+                addSection('📦 BIAYA PLATFORM TOKOPEDIA');
+                rSellerType = addInput('Jenis Seller', sellerType, null, 'Regular Merchant / Power Merchant / Power Merchant Pro', true);
+                ws.getCell(rSellerType, 2).dataValidation = { type:'list', allowBlank:false, formulae:['"Regular Merchant,Power Merchant,Power Merchant Pro"'], showErrorMessage:true, errorTitle:'Input Tidak Valid', error:'Pilih dari dropdown.' };
 
-                // SECTION 3: BIAYA PROMO
-                addSectionHeader('📣 BIAYA PROMO, PROGRAM & DISKON');
-                rVoucherPercent = row + 1; addInputRow('Voucher Diskon Seller (%)', voucherDiscountPercent, '0.00%', 'Diskon promosi toko %');
-                rVoucherRupiah = row + 1; addFormulaRow('Voucher Diskon Seller (Rp)', `=B${rHargaJual}*(B${rVoucherPercent}/100)`, '"Rp"#,##0', 'Diskon promosi toko nominal (sinkron)');
-                rAdsPerOrder = row + 1; addInputRow('Biaya Iklan / Ads Per Order', adsPerOrder, '"Rp"#,##0', 'Alokasi pemasaran per item');
-                rAffiliateRate = row + 1; addInputRow('Komisi Affiliate (%)', affiliateRate, '0.00%', 'Komisi affiliate program');
-                rGmvMaxActive = row + 1; addInputRow('GMV Max Aktif?', isGmvMaxActive ? 'YA' : 'TIDAK', '@', 'Opsi: YA / TIDAK');
-                rGmvMaxBudget = row + 1; addInputRow('Budget GMV Max / Bulan', gmvMaxBudget, '"Rp"#,##0', 'Budget spend ads bulanan');
-                rTotalGmv = row + 1; addInputRow('Total Realisasi GMV Toko / Bulan', totalGmv, '"Rp"#,##0', 'Total omset bulanan toko');
-                rGrowthXtraActive = row + 1; addInputRow('Growth Xtra Aktif?', isGrowthXtraActive ? 'YA' : 'TIDAK', '@', 'Opsi: YA / TIDAK');
+                rPlatformRate = addInput('Komisi Platform Dasar (%)', platformRate, '0.0%', 'Tarif dasar komisi');
+                rDynamicRate  = addInput('Komisi Dinamis (%)', dynamicRate, '0.0%', 'Tarif dinamis komisi dasar');
+                rLogistics    = addInput('Biaya Layanan Logistik', logisticsFeeInput, '"Rp"#,##0', 'Biaya layanan logistik real-time');
 
-                // SECTION 4: TARGET PENJUALAN
-                addSectionHeader('🎯 TARGET PENJUALAN');
-                rTargetMargin = row + 1; addInputRow('Target Margin Bersih (%)', targetMargin, '0.0%', 'Target keuntungan per pesanan');
-                rDailyOrders = row + 1; addInputRow('Estimasi Order Per Hari (Pcs)', dailyOrdersTarget, '#,##0', 'Target volume penjualan harian');
+                rPreOrder = addInput('Produk Pre-Order?', isPreOrder ? 'YA' : 'TIDAK', null, 'Ada tambahan +3.0% komisi jika YA', true);
+                ws.getCell(rPreOrder, 2).dataValidation = { type:'list', allowBlank:false, formulae:['"YA,TIDAK"'], showErrorMessage:true, errorTitle:'Input Tidak Valid', error:'Pilih YA atau TIDAK.' };
 
-                // SECTION 5: PROSES KALKULASI FORMULA EXCEL
-                addSectionHeader('⚡ PROSES KALKULASI OTOMATIS (FORMULA EXCEL)');
-                
-                rBasisKomisi = row + 1; 
-                addFormulaRow('Basis Perhitungan Komisi', `=MAX(0, B${rHargaJual}-B${rDiskonSeller})`, '"Rp"#,##0', 'Harga netto dikurangi diskon langsung');
-                
+                rIsNewShop = addInput('Toko Baru?', isNewShop ? 'YA' : 'TIDAK', null, 'Bebas biaya pemrosesan jika YA', true);
+                ws.getCell(rIsNewShop, 2).dataValidation = { type:'list', allowBlank:false, formulae:['"YA,TIDAK"'], showErrorMessage:true, errorTitle:'Input Tidak Valid', error:'Pilih YA atau TIDAK.' };
+
+                rOrderCondition = addInput('Status Kondisi Pesanan', orderCondition.toUpperCase(), null, 'NORMAL / RETUR / GAGAL', true);
+                ws.getCell(rOrderCondition, 2).dataValidation = { type:'list', allowBlank:false, formulae:['"NORMAL,RETUR,GAGAL"'], showErrorMessage:true, errorTitle:'Input Tidak Valid', error:'Pilih dari dropdown.' };
+
+                // Section 3
+                addSection('📣 BIAYA PROMO, PROGRAM & DISKON');
+                rVoucherPercent = addInput('Voucher Diskon Seller (%)', voucherDiscountPercent, '0.00%', 'Diskon promosi toko %');
+                rVoucherRupiah  = addFormula('Voucher Diskon Seller (Rp)', `=B${rHargaJual}*(B${rVoucherPercent}/100)`, '"Rp"#,##0', 'Diskon promosi toko nominal (sinkron)');
+                rAdsPerOrder    = addInput('Biaya Iklan / Ads Per Order', adsPerOrder, '"Rp"#,##0', 'Alokasi pemasaran per item');
+                rAffiliateRate  = addInput('Komisi Affiliate (%)', affiliateRate, '0.00%', 'Komisi affiliate program');
+
+                rGmvMaxActive = addInput('GMV Max Aktif?', isGmvMaxActive ? 'YA' : 'TIDAK', null, 'Opsi: YA / TIDAK', true);
+                ws.getCell(rGmvMaxActive, 2).dataValidation = { type:'list', allowBlank:false, formulae:['"YA,TIDAK"'], showErrorMessage:true, errorTitle:'Input Tidak Valid', error:'Pilih YA atau TIDAK.' };
+
+                rGmvMaxBudget = addInput('Budget GMV Max / Bulan', gmvMaxBudget, '"Rp"#,##0', 'Budget spend ads bulanan');
+                rTotalGmv     = addInput('Total Realisasi GMV Toko / Bulan', totalGmv, '"Rp"#,##0', 'Total omset bulanan toko');
+
+                rGrowthXtraActive = addInput('Growth Xtra Aktif?', isGrowthXtraActive ? 'YA' : 'TIDAK', null, 'Opsi: YA / TIDAK', true);
+                ws.getCell(rGrowthXtraActive, 2).dataValidation = { type:'list', allowBlank:false, formulae:['"YA,TIDAK"'], showErrorMessage:true, errorTitle:'Input Tidak Valid', error:'Pilih YA atau TIDAK.' };
+
+                // Section 4
+                addSection('🎯 TARGET PENJUALAN');
+                rTargetMargin = addInput('Target Margin Bersih (%)', targetMargin, '0.0%', 'Target keuntungan per pesanan');
+                rDailyOrders  = addInput('Estimasi Order Per Hari (Pcs)', dailyOrdersTarget, '#,##0', 'Target volume penjualan harian');
+
+                // Section 5
+                addSection('⚡ PROSES KALKULASI OTOMATIS (FORMULA EXCEL)');
                 const fFailed = `B${rOrderCondition}="GAGAL"`;
-                
-                rPlatformEffective = row + 1; 
-                addFormulaRow('Persentase Platform Efektif', `=IF(${fFailed}, 0, IF(OR(B${rPlatformRate}=10, B${rPlatformRate}=10.0), 8.0, B${rPlatformRate}) + IF(B${rPreOrder}="YA", 3.0, 0))`, '0.0%', 'Auto diskon 10% -> 8% & surcharge PO 3%');
-                
-                rRawPlatform = row + 1; 
-                addFormulaRow('Biaya Komisi Platform Dasar', `=B${rBasisKomisi}*(B${rPlatformEffective}/100)`, '"Rp"#,##0');
-                
-                let rGmvRatio = row + 1;
-                addFormulaRow('Rasio GMV Max', `=IF(B${rTotalGmv}>0, B${rGmvMaxBudget}/B${rTotalGmv}, 0)`, '0.00%', 'Rasio budget ads vs total GMV toko');
+                rBasisKomisi = addFormula('Basis Perhitungan Komisi', `=MAX(0,B${rHargaJual}-B${rDiskonSeller})`, '"Rp"#,##0', 'Harga netto dikurangi diskon langsung');
+                rPlatformEffective = addFormula('Persentase Platform Efektif', `=IF(${fFailed},0,IF(OR(B${rPlatformRate}=10,B${rPlatformRate}=10.0),8.0,B${rPlatformRate})+IF(B${rPreOrder}="YA",3.0,0))`, '0.0%', 'Auto diskon 10% -> 8% & surcharge PO 3%');
+                rRawPlatform = addFormula('Biaya Komisi Platform Dasar', `=B${rBasisKomisi}*(B${rPlatformEffective}/100)`, '"Rp"#,##0', '');
+                rGmvRatio = addFormula('Rasio GMV Max', `=IF(B${rTotalGmv}>0,B${rGmvMaxBudget}/B${rTotalGmv},0)`, '0.00%', 'Rasio budget ads vs total GMV toko');
+                rProgramDiscountPercent = addFormula('Diskon Hemat Program (%)', `=IF(B${rSellerType}="Regular Merchant",0,IF(AND(B${rGmvMaxActive}="YA",B${rGrowthXtraActive}="YA"),IF(B${rGmvRatio}>=0.03,8.18,7.50),IF(B${rGmvMaxActive}="YA",IF(B${rGmvRatio}>=0.03,6.45,2.70),IF(B${rGrowthXtraActive}="YA",4.80,0))))`, '0.00%', 'Tingkat penghematan platform dari komisi dasar');
+                rProgramSavings = addFormula('Total Penghematan Program', `=B${rRawPlatform}*(B${rProgramDiscountPercent}/100)`, '"Rp"#,##0', 'Dihitung dari komisi platform dasar');
+                rPlatformEffNet = addFormula('Biaya Komisi Platform Netto', `=MAX(0,B${rRawPlatform}-B${rProgramSavings})`, '"Rp"#,##0', '');
+                rDynamicComm = addFormula('Biaya Komisi Dinamis (Cap)', `=IF(${fFailed},0,MIN(650000,B${rBasisKomisi}*(B${rDynamicRate}/100)))`, '"Rp"#,##0', 'Capped maksimal Rp650.000/item');
+                rProcessingFee = addFormula('Biaya Pemrosesan Order', `=IF(OR(${fFailed},B${rIsNewShop}="YA"),0,1250)`, '"Rp"#,##0', '');
+                rLogisticsEff = addFormula('Biaya Layanan Logistik', `=IF(${fFailed},0,MIN(10110,B${rLogistics}))`, '"Rp"#,##0', 'Maksimal Rp 10.110 per transaksi');
+                rAffiliateComm = addFormula('Biaya Komisi Affiliate', `=IF(${fFailed},0,B${rBasisKomisi}*(B${rAffiliateRate}/100))`, '"Rp"#,##0', '');
+                rReturnFee = addFormula('Kontribusi Biaya Retur', `=IF(B${rOrderCondition}="RETUR",5000,0)`, '"Rp"#,##0', '');
 
-                let rProgramDiscountPercent = row + 1;
-                addFormulaRow('Diskon Hemat Program (%)', 
-                    `=IF(B${rSellerType}="Regular Merchant", 0, IF(AND(B${rGmvMaxActive}="YA", B${rGrowthXtraActive}="YA"), IF(B${rGmvRatio}>=0.03, 8.18, 7.50), IF(B${rGmvMaxActive}="YA", IF(B${rGmvRatio}>=0.03, 6.45, 2.70), IF(B${rGrowthXtraActive}="YA", 4.80, 0))))`, 
-                    '0.00%', 'Tingkat penghematan platform dari komisi dasar'
-                );
+                // Section 6
+                addSection('💰 HASIL AKHIR & TARGET PROFIT');
+                rPayout = addFormula('Dana Masuk ke Seller (Payout)', `=B${rBasisKomisi}-(B${rPlatformEffNet}+B${rDynamicComm}+B${rProcessingFee}+B${rLogisticsEff}+B${rAffiliateComm}+B${rVoucherRupiah})`, '"Rp"#,##0', 'Saldo yang ditransfer ke akun seller');
+                rNetProfit = addFormula('ESTIMASI LABA BERSIH PER UNIT', `=B${rPayout}-B${rHpp}-B${rPackaging}-B${rAdsPerOrder}-B${rReturnFee}`, '"Rp"#,##0', 'Profit bersih akhir setelah semua potongan', true);
+                rMarginPercent = addFormula('Margin Keuntungan Bersih (%)', `=IF(B${rBasisKomisi}>0,B${rNetProfit}/B${rBasisKomisi},0)`, '0.0%', 'Persentase margin terhadap basis komisi');
 
-                rProgramSavings = row + 1; 
-                addFormulaRow('Total Penghematan Program', `=B${rRawPlatform}*(B${rProgramDiscountPercent}/100)`, '"Rp"#,##0', 'Dihitung dari komisi platform dasar');
-                
-                rPlatformEffNet = row + 1; 
-                addFormulaRow('Biaya Komisi Platform Netto', `=MAX(0, B${rRawPlatform}-B${rProgramSavings})`, '"Rp"#,##0');
-                
-                rDynamicComm = row + 1; 
-                addFormulaRow('Biaya Komisi Dinamis (Cap)', `=IF(${fFailed}, 0, MIN(650000, B${rBasisKomisi}*(B${rDynamicRate}/100)))`, '"Rp"#,##0', 'Capped maksimal Rp650.000/item');
-                
-                rProcessingFee = row + 1; 
-                addFormulaRow('Biaya Pemrosesan Order', `=IF(OR(${fFailed}, B${rIsNewShop}="YA"), 0, 1250)`, '"Rp"#,##0');
-                
-                rLogisticsEff = row + 1; 
-                addFormulaRow('Biaya Layanan Logistik', `=IF(${fFailed}, 0, MIN(10110, B${rLogistics}))`, '"Rp"#,##0', 'Maksimal Rp 10.110 per transaksi');
-                
-                rAffiliateComm = row + 1; 
-                addFormulaRow('Biaya Komisi Affiliate', `=IF(${fFailed}, 0, B${rBasisKomisi}*(B${rAffiliateRate}/100))`, '"Rp"#,##0');
-                
-                rReturnFee = row + 1; 
-                addFormulaRow('Kontribusi Biaya Retur', `=IF(B${rOrderCondition}="RETUR", 5000, 0)`, '"Rp"#,##0');
+                rowNum++;
+                rStatus = rowNum;
+                ws.getRow(rowNum).height = 22;
+                const cSA = ws.getCell(rowNum, 1); cSA.value = 'STATUS KESEHATAN MARGIN'; applyS(cSA, STYLES.labelOut);
+                const cSB = ws.getCell(rowNum, 2); cSB.value = { formula: `=IF(B${rMarginPercent}>=(B${rTargetMargin}/100),"TARGET TERPENUHI ✅","DI BAWAH TARGET ⚠️")`, result: '' }; applyS(cSB, STYLES.statusOk);
+                const cSC = ws.getCell(rowNum, 3); cSC.value = 'Otomatis berubah jika input target diubah'; applyS(cSC, STYLES.notes);
 
-                // SECTION 6
-                addSectionHeader('💰 HASIL AKHIR & TARGET PROFIT');
-                rPayout = row + 1; 
-                addFormulaRow('Dana Masuk ke Seller (Payout)', `=B${rBasisKomisi}-(B${rPlatformEffNet}+B${rDynamicComm}+B${rProcessingFee}+B${rLogisticsEff}+B${rAffiliateComm}+B${rVoucherRupiah})`, '"Rp"#,##0', 'Saldo yang ditransfer ke akun seller');
-                
-                rNetProfit = row + 1; 
-                addFinalRow('ESTIMASI LABA BERSIH PER UNIT', `=B${rPayout}-B${rHpp}-B${rPackaging}-B${rAdsPerOrder}-B${rReturnFee}`, '"Rp"#,##0', 'Profit bersih akhir setelah semua potongan');
-                
-                rMarginPercent = row + 1; 
-                addFormulaRow('Margin Keuntungan Bersih (%)', `=IF(B${rBasisKomisi}>0, B${rNetProfit}/B${rBasisKomisi}, 0)`, '0.0%', 'Persentase margin terhadap basis komisi');
-                
-                rStatus = row + 1;
-                ws[`A${rStatus}`] = { v: 'STATUS KESEHATAN MARGIN', t: 's', s: STYLES.labelOutput };
-                ws[`B${rStatus}`] = { f: `=IF(B${rMarginPercent}>=(B${rTargetMargin}/100), "TARGET TERPENUHI ✅", "DI BAWAH TARGET ⚠️")`, s: STYLES.statusHealthy, t: 's' };
-                ws[`C${rStatus}`] = { v: 'Otomatis berubah jika input target diubah', t: 's', s: STYLES.notes };
-                rowHeights.push({ hpt: 22 });
-                row++;
+                rBep = addFormula('HARGA MINIMUM BREAK-EVEN (BEP)', `=ROUND((B${rHpp}+B${rPackaging}+B${rProcessingFee}+B${rLogisticsEff}+B${rAdsPerOrder}+B${rVoucherRupiah}+B${rReturnFee}-B${rDiskonSeller}*((B${rPlatformEffective}/100)*(1-(B${rProgramDiscountPercent}/100))+(B${rDynamicRate}/100)+(B${rAffiliateRate}/100)))/(1-((B${rPlatformEffective}/100)*(1-(B${rProgramDiscountPercent}/100))+(B${rDynamicRate}/100)+(B${rAffiliateRate}/100)+(B${rVoucherPercent}/100))),0)`, '"Rp"#,##0', 'Harga jual minimum agar tidak merugi', true);
+                rRecommended = addFormula('REKOMENDASI JUAL MINIMUM', `=MAX(B${rHargaJual},ROUND((B${rHpp}+B${rPackaging}+B${rPlatformEffNet}+B${rDynamicComm}+B${rProcessingFee}+B${rLogisticsEff}+B${rAffiliateComm}+B${rVoucherRupiah}+B${rAdsPerOrder}+B${rReturnFee})/(1-(B${rTargetMargin}/100)),0))`, '"Rp"#,##0', 'Rekomendasi harga berdasarkan Target Margin', true);
 
-                rBep = row + 1; 
-                addFinalRow('HARGA MINIMUM BREAK-EVEN (BEP)', `=ROUND((B${rHpp}+B${rPackaging}+B${rProcessingFee}+B${rLogisticsEff}+B${rAdsPerOrder}+B${rVoucherRupiah}+B${rReturnFee}-B${rDiskonSeller}*((B${rPlatformEffective}/100)*(1-(B${rProgramDiscountPercent}/100))+(B${rDynamicRate}/100)+(B${rAffiliateRate}/100)))/(1-((B${rPlatformEffective}/100)*(1-(B${rProgramDiscountPercent}/100))+(B${rDynamicRate}/100)+(B${rAffiliateRate}/100)+(B${rVoucherPercent}/100))), 0)`, '"Rp"#,##0', 'Harga jual minimum agar tidak merugi');
+                rowNum += 2;
+                ws.getRow(rowNum).height = 18;
+                const footerCell = ws.getCell(rowNum, 1);
+                footerCell.value = 'File ini digenerate otomatis oleh warasberbisnis. Nilai dinamis menggunakan formula Excel murni.';
+                applyS(footerCell, STYLES.notes);
+                ws.mergeCells(rowNum, 1, rowNum, 3);
 
-                rRecommended = row + 1;
-                addFinalRow('REKOMENDASI JUAL MINIMUM', `=MAX(B${rHargaJual}, ROUND((B${rHpp}+B${rPackaging}+B${rPlatformEffNet}+B${rDynamicComm}+B${rProcessingFee}+B${rLogisticsEff}+B${rAffiliateComm}+B${rVoucherRupiah}+B${rAdsPerOrder}+B${rReturnFee})/(1-(B${rTargetMargin}/100)), 0))`, '"Rp"#,##0', 'Rekomendasi harga berdasarkan Target Margin');
-
-                // Footer Info
-                row += 2;
-                ws[`A${row + 1}`] = { v: `File ini digenerate otomatis oleh warasberbisnis. Nilai dinamis menggunakan formula Excel murni.`, t: 's', s: STYLES.notes };
-                merges.push({ s: { r: row, c: 0 }, e: { r: row, c: 2 } });
-                rowHeights.push({ hpt: 18 });
-
-                ws['!merges'] = merges;
-                ws['!rows'] = rowHeights;
-                ws['!cols'] = [{ wch: 38 }, { wch: 22 }, { wch: 65 }];
-                
-                const maxRow = row + 2;
-                ws['!ref'] = `A1:C${maxRow}`;
-
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, 'Hasil Perhitungan');
-
-                // Excel data drop-downs
-                ws['!dataValidation'] = [
-                    { sqref: `B${rPreOrder}`, type: 'list', formula1: '"YA,TIDAK"' },
-                    { sqref: `B${rSellerType}`, type: 'list', formula1: '"Regular Merchant,Power Merchant,Power Merchant Pro"' },
-                    { sqref: `B${rIsNewShop}`, type: 'list', formula1: '"YA,TIDAK"' },
-                    { sqref: `B${rOrderCondition}`, type: 'list', formula1: '"NORMAL,RETUR,GAGAL"' },
-                    { sqref: `B${rGmvMaxActive}`, type: 'list', formula1: '"YA,TIDAK"' },
-                    { sqref: `B${rGrowthXtraActive}`, type: 'list', formula1: '"YA,TIDAK"' }
-                ];
-
-                const wbout = XLSX.write(wb, { bookType: 'xlsx', cellStyles: true, type: 'array' });
-                const blob = new Blob([wbout], { type: 'application/octet-stream' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
                 const cleanName = namaProduk.replace(/[^a-z0-9]/gi, '_').toLowerCase();
                 const today = new Date().toISOString().split('T')[0];
+                const fileName = `Kalkulasi_Profit_${cleanName}_${today}.xlsx`;
+                const buffer = await wb.xlsx.writeBuffer();
+                const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
                 a.href = url;
-                a.download = `Kalkulasi_Profit_${cleanName}_${today}.xlsx`;
+                a.download = fileName;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
